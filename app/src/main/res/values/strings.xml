@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Trato Hecho</string>
+    <string name="canal_notificaciones_nombre">Cotizaciones</string>
+    <string name="canal_notificaciones_descripcion">Avisos de cotizaciones listas para enviar y respuestas de clientes</string>
+</resources>
