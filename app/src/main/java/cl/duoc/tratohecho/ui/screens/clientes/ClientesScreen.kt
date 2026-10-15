@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.ui.draw.alpha
 import androidx.compose.material.icons.filled.CloudOff
 import cl.duoc.tratohecho.ui.components.CargandoDatos
 import cl.duoc.tratohecho.ui.components.ContenidoActualizable
@@ -76,7 +77,8 @@ fun ClientesScreen(
         topBar = { BarraSeccion(if (sesion.rol == Rol.VENDEDOR) "Mis clientes" else "Clientes") },
         floatingActionButton = {
             // Solo el vendedor registra clientes nuevos
-            if (sesion.rol == Rol.VENDEDOR) {
+            // Solo el administrador registra clientes
+            if (sesion.rol == Rol.ADMINISTRADOR) {
                 BotonFlotante("Nuevo cliente", Icons.Filled.PersonAdd, onNuevo, Modifier.padding(bottom = ESPACIO_BARRA_NAVEGACION))
             }
         }
@@ -101,14 +103,18 @@ fun ClientesScreen(
                             EstadoVacio(
                                 icono = Icons.Filled.CloudOff,
                                 titulo = "Sin conexión",
-                                mensaje = "No hay clientes guardados en el teléfono. Igual puedes registrar uno nuevo; se sincronizará al volver la señal."
+                                mensaje = "No hay clientes guardados en el teléfono. Conéctate y desliza hacia abajo para descargarlos."
                             )
                         }
                         lista.isEmpty() -> item {
                             EstadoVacio(
                                 icono = Icons.Filled.PersonSearch,
                                 titulo = if (busqueda.isBlank()) "Aún no hay clientes" else "Sin resultados",
-                                mensaje = if (busqueda.isBlank()) "Registra tu primer cliente, incluso sin conexión." else "Prueba con otro nombre o RUT."
+                                mensaje = when {
+                                    busqueda.isNotBlank() -> "Prueba con otro nombre o RUT."
+                                    sesion.rol == Rol.ADMINISTRADOR -> "Registra el primer cliente y asígnale un vendedor, incluso sin conexión."
+                                    else -> "El administrador aún no te asigna clientes."
+                                }
                             )
                         }
                         else -> items(lista, key = { it.cliente.id }) { cliente ->
@@ -146,7 +152,12 @@ private fun TarjetaCliente(
             .fillMaxWidth()
             .efectoPresion(interaccion)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier
+                .padding(16.dp)
+                .alpha(if (cliente.cliente.activo) 1f else 0.55f)
+        ) {
             Avatar(cliente.cliente.razonSocial)
             Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
@@ -158,6 +169,14 @@ private fun TarjetaCliente(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
+                )
+            }
+            if (!cliente.cliente.activo) {
+                Text(
+                    "De baja",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.error,
+                    modifier = Modifier.padding(horizontal = 6.dp)
                 )
             }
             if (cliente.cliente.pendienteSync) {

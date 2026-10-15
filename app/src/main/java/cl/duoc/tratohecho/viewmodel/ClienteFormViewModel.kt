@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import cl.duoc.tratohecho.data.local.SesionDataStore
 import cl.duoc.tratohecho.data.local.entity.ClienteEntity
 import cl.duoc.tratohecho.data.local.entity.ContactoEntity
+import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.repository.ClienteRepository
+import cl.duoc.tratohecho.data.repository.UsuarioRepository
+import cl.duoc.tratohecho.domain.model.Rol
 import cl.duoc.tratohecho.data.sync.GestorSincronizacion
 import cl.duoc.tratohecho.nativo.MonitorRed
 import cl.duoc.tratohecho.utils.RutVisualTransformation
@@ -16,6 +19,9 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -30,10 +36,11 @@ data class ClienteErrores(
     val giro: String? = null,
     val direccion: String? = null,
     val correo: String? = null,
-    val telefono: String? = null
+    val telefono: String? = null,
+    val vendedor: String? = null
 ) {
     val hayErrores: Boolean
-        get() = listOf(rut, razonSocial, giro, direccion, correo, telefono).any { it != null }
+        get() = listOf(rut, razonSocial, giro, direccion, correo, telefono, vendedor).any { it != null }
 }
 
 data class ContactoErrores(
@@ -64,6 +71,9 @@ data class ClienteFormUiState(
     val empresaId: String = "",
     val vendedorId: String = "",
     val vendedorNombre: String = "",
+    val activo: Boolean = true,
+    // true = el vendedor solo puede editar correo, teléfono y contactos (el resto lo gestiona el administrador)
+    val soloContacto: Boolean = false,
     val rut: String = "",
     val razonSocial: String = "",
     val giro: String = "",
@@ -81,6 +91,7 @@ data class ClienteFormUiState(
 class ClienteFormViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val clienteRepository: ClienteRepository,
+    usuarioRepository: UsuarioRepository,
     private val sesionDataStore: SesionDataStore,
     private val gestorSincronizacion: GestorSincronizacion,
     private val monitorRed: MonitorRed
@@ -88,6 +99,11 @@ class ClienteFormViewModel @Inject constructor(
 
     private val _estado = MutableStateFlow(ClienteFormUiState(cargando = true))
     val estado: StateFlow<ClienteFormUiState> = _estado.asStateFlow()
+
+    // Vendedores activos a los que el administrador puede asignar el cliente
+    val vendedores: StateFlow<List<UsuarioEntity>> = usuarioRepository.observarUsuarios()
+        .map { lista -> lista.filter { it.rol == Rol.VENDEDOR && it.activo } }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _guardado = MutableSharedFlow<String>()
     val guardado: SharedFlow<String> = _guardado.asSharedFlow()
@@ -97,19 +113,18 @@ class ClienteFormViewModel @Inject constructor(
         viewModelScope.launch {
             val sesion = sesionDataStore.obtenerSesion()
             val existente = id?.let { clienteRepository.obtenerCliente(it) }
+            val soloContacto = sesion?.rol != Rol.ADMINISTRADOR
             _estado.value = if (existente != null) {
                 val c = existente.cliente
                 ClienteFormUiState(
                     id = c.id, esNuevo = false, empresaId = c.empresaId, vendedorId = c.vendedorId, vendedorNombre = c.vendedorNombre,
+                    activo = c.activo, soloContacto = soloContacto,
                     rut = ValidadorRut.limpiar(c.rut), razonSocial = c.razonSocial, giro = c.giro, direccion = c.direccion,
                     correo = c.correo, telefono = c.telefono, contactos = existente.contactos
                 )
             } else {
-                ClienteFormUiState(
-                    empresaId = sesion?.empresaId ?: "",
-                    vendedorId = sesion?.usuarioId ?: "",
-                    vendedorNombre = sesion?.nombre ?: ""
-                )
+                // Cliente nuevo: solo lo crea el administrador, que elige el vendedor a cargo
+                ClienteFormUiState(empresaId = sesion?.empresaId ?: "")
             }
         }
     }
@@ -129,6 +144,7 @@ class ClienteFormViewModel @Inject constructor(
     fun onDireccionChange(v: String) = actualizar { it.copy(direccion = v) }
     fun onCorreoChange(v: String) = actualizar { it.copy(correo = v) }
     fun onTelefonoChange(v: String) = actualizar { it.copy(telefono = v) }
+    fun onVendedorChange(v: UsuarioEntity) = actualizar { it.copy(vendedorId = v.id, vendedorNombre = v.nombre) }
 
 
     private fun validarCliente(e: ClienteFormUiState) = ClienteErrores(
@@ -137,14 +153,15 @@ class ClienteFormViewModel @Inject constructor(
         giro = Validaciones.largo(e.giro, "El giro", 3, 60),
         direccion = Validaciones.largo(e.direccion, "La dirección", 5, 100),
         correo = Validaciones.correo(e.correo),
-        telefono = Validaciones.telefono(e.telefono)
+        telefono = Validaciones.telefono(e.telefono),
+        vendedor = if (!e.soloContacto && e.vendedorId.isBlank()) "Asigna un vendedor al cliente" else null
     )
 
     fun guardar() {
         val actual = _estado.value
         var errores = validarCliente(actual)
         viewModelScope.launch {
-            if (errores.rut == null && clienteRepository.existeRut(ValidadorRut.formatear(actual.rut), actual.id)) {
+            if (!actual.soloContacto && errores.rut == null && clienteRepository.existeRut(ValidadorRut.formatear(actual.rut), actual.id)) {
                 errores = errores.copy(rut = "Ya existe un cliente con este RUT")
             }
             _estado.update { it.copy(errores = errores, intentoGuardar = true) }
@@ -161,7 +178,8 @@ class ClienteFormViewModel @Inject constructor(
                 direccion = actual.direccion.trim(),
                 correo = actual.correo.trim(),
                 telefono = actual.telefono.trim(),
-                vendedorNombre = actual.vendedorNombre
+                vendedorNombre = actual.vendedorNombre,
+                activo = actual.activo
             )
             clienteRepository.guardar(cliente, actual.contactos)
             gestorSincronizacion.sincronizarEnSegundoPlano()

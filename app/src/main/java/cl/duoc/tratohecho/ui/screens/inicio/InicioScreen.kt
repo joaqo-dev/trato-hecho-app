@@ -119,13 +119,17 @@ fun InicioScreen(
             indicadores = datos.indicadores,
             ocultos = montosOcultos,
             onAlternarOcultos = { montosOcultos = !montosOcultos },
-            acciones = if (esVendedor) {
-                listOf(
+            // Solo el administrador registra clientes; el vendedor cotiza a los que tiene asignados
+            acciones = when (sesion.rol) {
+                Rol.VENDEDOR -> listOf(
                     AccionHero("Cotizar", Icons.Filled.Add, onNuevaCotizacion),
-                    AccionHero("Nuevo cliente", Icons.Filled.PersonAdd, onNuevoCliente)
+                    AccionHero("Mis clientes", Icons.Filled.People, onAbrirClientes)
                 )
-            } else {
-                listOf(
+                Rol.ADMINISTRADOR -> listOf(
+                    AccionHero("Nuevo cliente", Icons.Filled.PersonAdd, onNuevoCliente),
+                    AccionHero("Clientes", Icons.Filled.People, onAbrirClientes)
+                )
+                Rol.SUPERVISOR -> listOf(
                     AccionHero("Cotizaciones", Icons.Filled.Description, onAbrirCotizaciones),
                     AccionHero("Clientes", Icons.Filled.People, onAbrirClientes)
                 )

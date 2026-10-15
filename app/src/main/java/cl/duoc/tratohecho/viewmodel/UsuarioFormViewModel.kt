@@ -5,13 +5,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.tratohecho.data.local.SesionDataStore
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
+import cl.duoc.tratohecho.data.repository.ClienteRepository
 import cl.duoc.tratohecho.data.repository.UsuarioRepository
+import cl.duoc.tratohecho.data.sync.GestorSincronizacion
 import cl.duoc.tratohecho.domain.model.Rol
 import cl.duoc.tratohecho.utils.Validaciones
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -36,24 +41,46 @@ data class UsuarioFormUiState(
     val nombre: String = "",
     val correo: String = "",
     val rol: Rol = Rol.VENDEDOR,
+    val rolOriginal: Rol? = null,       // rol con que se cargó (para saber si deja de ser vendedor)
     val activo: Boolean = true,
+    val clientesACargo: Int = 0,        // clientes activos que tiene asignados (si es vendedor)
     val clave: String = "",
     val confirmacion: String = "",
     val errores: UsuarioErrores = UsuarioErrores(),
     val intentoGuardar: Boolean = false,
     val guardando: Boolean = false,
-    val errorGeneral: String? = null
+    val errorGeneral: String? = null,
+    val traspaso: TraspasoUiState? = null
+) {
+    // Un vendedor con clientes que se da de baja (o cambia de rol) obliga a traspasar sus clientes
+    val requiereTraspaso: Boolean
+        get() = rolOriginal == Rol.VENDEDOR && clientesACargo > 0 && (!activo || rol != Rol.VENDEDOR)
+}
+
+// Diálogo para elegir a qué vendedor pasan los clientes de quien se da de baja
+data class TraspasoUiState(
+    val seleccionadoId: String? = null,
+    val error: String? = null
 )
 
 @HiltViewModel
 class UsuarioFormViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val usuarioRepository: UsuarioRepository,
+    private val clienteRepository: ClienteRepository,
+    private val gestorSincronizacion: GestorSincronizacion,
     private val sesionDataStore: SesionDataStore
 ) : ViewModel() {
 
+
     private val _estado = MutableStateFlow(UsuarioFormUiState())
     val estado: StateFlow<UsuarioFormUiState> = _estado.asStateFlow()
+
+    // Vendedores activos que pueden recibir los clientes (sin contar al que se da de baja)
+    val vendedoresDisponibles: StateFlow<List<UsuarioEntity>> =
+        combine(usuarioRepository.observarUsuarios(), _estado) { lista, e ->
+            lista.filter { it.rol == Rol.VENDEDOR && it.activo && it.id != e.id }
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     private val _guardado = MutableSharedFlow<String>()
     val guardado: SharedFlow<String> = _guardado.asSharedFlow()
@@ -66,7 +93,8 @@ class UsuarioFormViewModel @Inject constructor(
                 usuarioRepository.obtenerUsuario(id)?.let { u ->
                     _estado.value = UsuarioFormUiState(
                         id = u.id, esNuevo = false, esUsuarioActual = u.id == sesion?.usuarioId,
-                        nombre = u.nombre, correo = u.correo, rol = u.rol, activo = u.activo
+                        nombre = u.nombre, correo = u.correo, rol = u.rol, rolOriginal = u.rol, activo = u.activo,
+                        clientesACargo = if (u.rol == Rol.VENDEDOR) clienteRepository.contarActivosDe(u.id) else 0
                     )
                 }
             }
@@ -101,6 +129,41 @@ class UsuarioFormViewModel @Inject constructor(
         val errores = validar(actual)
         _estado.update { it.copy(errores = errores, intentoGuardar = true) }
         if (errores.hayErrores) return
+        // Para no dejar clientes sin vendedor, primero se eligen a quién pasan
+        if (actual.requiereTraspaso) {
+            _estado.update { it.copy(traspaso = TraspasoUiState()) }
+            return
+        }
+        guardarUsuario()
+    }
+
+    fun onVendedorTraspaso(id: String) = _estado.update { it.copy(traspaso = it.traspaso?.copy(seleccionadoId = id, error = null)) }
+
+    fun cerrarTraspaso() = _estado.update { it.copy(traspaso = null) }
+
+    // Traspasa los clientes al vendedor elegido y recién ahí guarda la baja
+    fun confirmarTraspaso() {
+        val actual = _estado.value
+        val destino = actual.traspaso?.seleccionadoId
+        if (destino == null) {
+            _estado.update { it.copy(traspaso = it.traspaso?.copy(error = "Elige el vendedor que recibirá los clientes")) }
+            return
+        }
+        viewModelScope.launch {
+            _estado.update { it.copy(guardando = true) }
+            usuarioRepository.traspasarClientes(actual.id, destino)
+                .onSuccess {
+                    _estado.update { it.copy(traspaso = null, clientesACargo = 0) }
+                    guardarUsuario()
+                }
+                .onFailure { error ->
+                    _estado.update { it.copy(guardando = false, traspaso = it.traspaso?.copy(error = error.message)) }
+                }
+        }
+    }
+
+    private fun guardarUsuario() {
+        val actual = _estado.value
         viewModelScope.launch {
             _estado.update { it.copy(guardando = true) }
             val usuario = UsuarioEntity(
@@ -112,7 +175,17 @@ class UsuarioFormViewModel @Inject constructor(
                 activo = actual.activo
             )
             usuarioRepository.guardar(usuario, actual.clave.ifBlank { null })
-                .onSuccess { _guardado.emit(if (actual.esNuevo) "Usuario creado" else "Usuario actualizado") }
+                .onSuccess {
+                    // Se bajan los clientes con su nuevo vendedor a cargo
+                    gestorSincronizacion.sincronizarEnSegundoPlano()
+                    _guardado.emit(
+                        when {
+                            actual.esNuevo -> "Usuario creado"
+                            !actual.activo -> "${actual.nombre} quedó dado de baja. Su historial se conserva."
+                            else -> "Usuario actualizado"
+                        }
+                    )
+                }
                 .onFailure { error -> _estado.update { it.copy(errorGeneral = error.message) } }
             _estado.update { it.copy(guardando = false) }
         }

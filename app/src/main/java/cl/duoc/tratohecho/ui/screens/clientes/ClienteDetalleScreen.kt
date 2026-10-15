@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.material.icons.filled.Restore
+import androidx.compose.material.icons.filled.Block
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import cl.duoc.tratohecho.ui.components.AccionMenu
@@ -84,20 +86,16 @@ fun ClienteDetalleScreen(
     val cotizaciones by viewModel.cotizaciones.collectAsStateWithLifecycle()
     val reasignar by viewModel.reasignar.collectAsStateWithLifecycle()
     val context = LocalContext.current
-    var confirmarEliminar by remember { mutableStateOf(false) }
-    // El administrador solo consulta; vendedor y supervisor pueden modificar
-    val puedeEditar = sesion.rol != Rol.ADMINISTRADOR
-    // Administrador y supervisor pueden cambiar el vendedor a cargo
-    val puedeReasignar = sesion.rol != Rol.VENDEDOR
+    var confirmarBaja by remember { mutableStateOf(false) }
+    // Solo el administrador gestiona clientes (editar, asignar vendedor, dar de baja).
+    // El vendedor solo actualiza la información de contacto de sus clientes. El supervisor solo consulta.
+    val esAdmin = sesion.rol == Rol.ADMINISTRADOR
+    val esVendedor = sesion.rol == Rol.VENDEDOR
 
     LaunchedEffect(Unit) {
         viewModel.eventos.collect { evento ->
             when (evento) {
                 is EventoDetalleCliente.Mensaje -> mostrarMensaje(evento.texto)
-                EventoDetalleCliente.Eliminado -> {
-                    mostrarMensaje("Cliente eliminado")
-                    onVolver()
-                }
             }
         }
     }
@@ -108,13 +106,18 @@ fun ClienteDetalleScreen(
                 titulo = "Cliente",
                 onVolver = onVolver,
                 acciones = {
-                    val id = cliente?.cliente?.id
-                    if (id != null && (puedeReasignar || puedeEditar)) {
+                    val actual = cliente?.cliente
+                    if (actual != null && (esAdmin || esVendedor)) {
                         MenuAcciones(
                             buildList {
-                                if (puedeEditar) add(AccionMenu("Editar cliente", Icons.Outlined.Edit) { onEditar(id) })
-                                if (puedeReasignar) add(AccionMenu("Reasignar vendedor", Icons.Filled.SwapHoriz) { viewModel.abrirReasignar() })
-                                if (puedeEditar) add(AccionMenu("Eliminar cliente", Icons.Outlined.Delete, destructiva = true) { confirmarEliminar = true })
+                                if (esAdmin) {
+                                    add(AccionMenu("Editar cliente", Icons.Outlined.Edit) { onEditar(actual.id) })
+                                    if (actual.activo) add(AccionMenu("Reasignar vendedor", Icons.Filled.SwapHoriz) { viewModel.abrirReasignar() })
+                                    if (actual.activo) add(AccionMenu("Dar de baja", Icons.Filled.Block, destructiva = true) { confirmarBaja = true })
+                                    else add(AccionMenu("Reactivar cliente", Icons.Filled.Restore) { viewModel.cambiarEstado(true) })
+                                } else {
+                                    add(AccionMenu("Editar datos de contacto", Icons.Outlined.Edit) { onEditar(actual.id) })
+                                }
                             }
                         )
                     }
@@ -147,6 +150,13 @@ fun ClienteDetalleScreen(
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
+            }
+            if (!datos.cliente.activo) {
+                Text(
+                    "Cliente dado de baja: no se puede cotizar. Su historial se conserva.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.error
+                )
             }
             BloqueDetalle("Datos del cliente") {
                 FilaDetalle("RUT", datos.cliente.rut)
@@ -195,16 +205,16 @@ fun ClienteDetalleScreen(
         )
     }
 
-    if (confirmarEliminar) {
+    if (confirmarBaja) {
         DialogoConfirmacion(
-            titulo = "Eliminar cliente",
-            mensaje = "Se eliminará el cliente y sus contactos. Solo es posible si no tiene cotizaciones. Requiere conexión.",
-            textoConfirmar = "Eliminar",
+            titulo = "Dar de baja al cliente",
+            mensaje = "El cliente dejará de aparecer para cotizar y su vendedor ya no lo verá. No se borra nada: sus cotizaciones y datos se conservan y puedes reactivarlo cuando quieras.",
+            textoConfirmar = "Dar de baja",
             onConfirmar = {
-                confirmarEliminar = false
-                viewModel.eliminar()
+                confirmarBaja = false
+                viewModel.cambiarEstado(false)
             },
-            onCancelar = { confirmarEliminar = false }
+            onCancelar = { confirmarBaja = false }
         )
     }
 }

@@ -22,7 +22,9 @@ class ClientesViewModel @Inject constructor(
     val busqueda: StateFlow<String> = _busqueda.asStateFlow()
 
     val clientes: StateFlow<List<ClienteConContactos>?> =
-        combine(clienteRepository.observarClientes(), _busqueda) { lista, texto ->
+        combine(clienteRepository.observarClientes(), _busqueda) { todos, texto ->
+            // Los clientes dados de baja van al final
+            val lista = todos.sortedBy { !it.cliente.activo }
             if (texto.isBlank()) lista
             else lista.filter {
                 it.cliente.razonSocial.contains(texto, ignoreCase = true) || it.cliente.rut.contains(texto)

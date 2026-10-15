@@ -42,11 +42,4 @@ class UsuariosViewModel @Inject constructor(
         }
     }
 
-    fun eliminar(id: String) {
-        viewModelScope.launch {
-            usuarioRepository.eliminar(id)
-                .onSuccess { _mensajes.emit("Usuario eliminado") }
-                .onFailure { _mensajes.emit(it.message ?: "No se pudo eliminar") }
-        }
-    }
 }

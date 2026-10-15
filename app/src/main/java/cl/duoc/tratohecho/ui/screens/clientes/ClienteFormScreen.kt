@@ -1,5 +1,10 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.material.icons.filled.SupportAgent
+import cl.duoc.tratohecho.utils.ValidadorRut
+import cl.duoc.tratohecho.ui.components.CampoSelector
+import cl.duoc.tratohecho.ui.components.FilaDetalle
+import cl.duoc.tratohecho.ui.components.BloqueDetalle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import cl.duoc.tratohecho.ui.components.AccionMenu
@@ -64,6 +69,7 @@ fun ClienteFormScreen(
     viewModel: ClienteFormViewModel = hiltViewModel()
 ) {
     val estado by viewModel.estado.collectAsStateWithLifecycle()
+    val vendedores by viewModel.vendedores.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.guardado.collect { mensaje ->
@@ -73,7 +79,16 @@ fun ClienteFormScreen(
     }
 
     Scaffold(
-        topBar = { BarraConVolver(if (estado.esNuevo) "Nuevo cliente" else "Editar cliente", onVolver) }
+        topBar = {
+            BarraConVolver(
+                when {
+                    estado.esNuevo -> "Nuevo cliente"
+                    estado.soloContacto -> "Datos de contacto"
+                    else -> "Editar cliente"
+                },
+                onVolver
+            )
+        }
     ) { padding ->
         if (estado.cargando) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
@@ -87,41 +102,69 @@ fun ClienteFormScreen(
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
-            TituloSeccion("Datos del cliente")
-            CampoTexto(
-                valor = estado.rut,
-                onValorChange = viewModel::onRutChange,
-                etiqueta = "RUT",
-                icono = Icons.Filled.Badge,
-                error = estado.errores.rut,
-                mostrarValido = estado.intentoGuardar,
-                ayuda = "Se completa con puntos y guion: 76.123.456-0",
-                transformacion = remember { RutVisualTransformation() }
-            )
-            CampoTexto(
-                valor = estado.razonSocial,
-                onValorChange = viewModel::onRazonSocialChange,
-                etiqueta = "Razón social o nombre",
-                icono = Icons.Filled.Business,
-                error = estado.errores.razonSocial,
-                mostrarValido = estado.intentoGuardar
-            )
-            CampoTexto(
-                valor = estado.giro,
-                onValorChange = viewModel::onGiroChange,
-                etiqueta = "Giro",
-                icono = Icons.Filled.Storefront,
-                error = estado.errores.giro,
-                mostrarValido = estado.intentoGuardar
-            )
-            CampoTexto(
-                valor = estado.direccion,
-                onValorChange = viewModel::onDireccionChange,
-                etiqueta = "Dirección",
-                icono = Icons.Filled.LocationOn,
-                error = estado.errores.direccion,
-                mostrarValido = estado.intentoGuardar
-            )
+            if (estado.soloContacto) {
+                // Vendedor: los datos de la empresa los mantiene el administrador; solo se ven
+                BloqueDetalle("Datos del cliente") {
+                    FilaDetalle("RUT", ValidadorRut.formatear(estado.rut))
+                    FilaDetalle("Razón social", estado.razonSocial)
+                    FilaDetalle("Giro", estado.giro)
+                    FilaDetalle("Dirección", estado.direccion)
+                }
+                Text(
+                    "Estos datos solo los modifica el administrador. Tú puedes actualizar la información de contacto.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 6.dp)
+                )
+                TituloSeccion("Información de contacto")
+            } else {
+                TituloSeccion("Datos del cliente")
+                CampoTexto(
+                    valor = estado.rut,
+                    onValorChange = viewModel::onRutChange,
+                    etiqueta = "RUT",
+                    icono = Icons.Filled.Badge,
+                    error = estado.errores.rut,
+                    mostrarValido = estado.intentoGuardar,
+                    ayuda = "Se completa con puntos y guion: 76.123.456-0",
+                    transformacion = remember { RutVisualTransformation() }
+                )
+                CampoTexto(
+                    valor = estado.razonSocial,
+                    onValorChange = viewModel::onRazonSocialChange,
+                    etiqueta = "Razón social o nombre",
+                    icono = Icons.Filled.Business,
+                    error = estado.errores.razonSocial,
+                    mostrarValido = estado.intentoGuardar
+                )
+                CampoTexto(
+                    valor = estado.giro,
+                    onValorChange = viewModel::onGiroChange,
+                    etiqueta = "Giro",
+                    icono = Icons.Filled.Storefront,
+                    error = estado.errores.giro,
+                    mostrarValido = estado.intentoGuardar
+                )
+                CampoTexto(
+                    valor = estado.direccion,
+                    onValorChange = viewModel::onDireccionChange,
+                    etiqueta = "Dirección",
+                    icono = Icons.Filled.LocationOn,
+                    error = estado.errores.direccion,
+                    mostrarValido = estado.intentoGuardar
+                )
+                // Solo el administrador asigna el vendedor a cargo
+                CampoSelector(
+                    etiqueta = "Vendedor a cargo",
+                    icono = Icons.Filled.SupportAgent,
+                    opciones = vendedores,
+                    seleccionado = vendedores.find { it.id == estado.vendedorId },
+                    textoDe = { it.nombre },
+                    textoSecundarioDe = { it.correo },
+                    onSeleccionar = viewModel::onVendedorChange,
+                    error = estado.errores.vendedor
+                )
+            }
             CampoTexto(
                 valor = estado.correo,
                 onValorChange = viewModel::onCorreoChange,
@@ -193,7 +236,7 @@ fun ClienteFormScreen(
             }
 
             BotonCarga(
-                texto = "Guardar cliente",
+                texto = if (estado.soloContacto) "Guardar contacto" else "Guardar cliente",
                 onClick = viewModel::guardar,
                 cargando = estado.guardando,
                 icono = Icons.Filled.Save,

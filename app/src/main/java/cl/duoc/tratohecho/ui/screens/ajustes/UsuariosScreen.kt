@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import cl.duoc.tratohecho.ui.theme.Pildora
@@ -60,7 +61,6 @@ fun UsuariosScreen(
 ) {
     val usuarios by viewModel.usuarios.collectAsStateWithLifecycle()
     val cargando by viewModel.cargando.collectAsStateWithLifecycle()
-    var aEliminar by remember { mutableStateOf<UsuarioEntity?>(null) }
 
     LaunchedEffect(Unit) { viewModel.mensajes.collect { mostrarMensaje(it) } }
 
@@ -113,7 +113,7 @@ fun UsuariosScreen(
                                     )
                                     if (!usuario.activo) {
                                         Text(
-                                            "  Desactivado",
+                                            "  De baja",
                                             style = MaterialTheme.typography.labelMedium,
                                             color = MaterialTheme.colorScheme.error,
                                             modifier = Modifier.align(Alignment.CenterVertically)
@@ -121,15 +121,12 @@ fun UsuariosScreen(
                                     }
                                 }
                             }
-                            MenuAcciones(
-                                buildList {
-                                    add(AccionMenu("Editar usuario", Icons.Outlined.Edit) { onEditar(usuario.id) })
-                                    // No se puede eliminar el propio usuario
-                                    if (usuario.id != sesion.usuarioId) {
-                                        add(AccionMenu("Eliminar usuario", Icons.Outlined.Delete, destructiva = true) { aEliminar = usuario })
-                                    }
-                                },
-                                descripcion = "Opciones de ${usuario.nombre}"
+                            // Se edita tocando la fila; los usuarios no se borran, se dan de baja desde su ficha
+                            Icon(
+                                Icons.AutoMirrored.Filled.KeyboardArrowRight,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.padding(end = 8.dp)
                             )
                         }
                     }
@@ -138,16 +135,5 @@ fun UsuariosScreen(
         }
     }
 
-    aEliminar?.let { usuario ->
-        DialogoConfirmacion(
-            titulo = "Eliminar usuario",
-            mensaje = "¿Eliminar a ${usuario.nombre}? Si tiene clientes o cotizaciones, mejor desactívalo.",
-            textoConfirmar = "Eliminar",
-            onConfirmar = {
-                viewModel.eliminar(usuario.id)
-                aEliminar = null
-            },
-            onCancelar = { aEliminar = null }
-        )
-    }
+
 }

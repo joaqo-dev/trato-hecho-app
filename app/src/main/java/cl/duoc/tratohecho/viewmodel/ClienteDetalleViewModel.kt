@@ -8,6 +8,7 @@ import cl.duoc.tratohecho.data.local.entity.CotizacionEntity
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.repository.ClienteRepository
 import cl.duoc.tratohecho.data.repository.CotizacionRepository
+import cl.duoc.tratohecho.data.sync.GestorSincronizacion
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -33,13 +34,13 @@ data class ReasignarUiState(
 
 sealed class EventoDetalleCliente {
     data class Mensaje(val texto: String) : EventoDetalleCliente()
-    data object Eliminado : EventoDetalleCliente()
 }
 
 @HiltViewModel
 class ClienteDetalleViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     private val clienteRepository: ClienteRepository,
+    private val gestorSincronizacion: GestorSincronizacion,
     cotizacionRepository: CotizacionRepository
 ) : ViewModel() {
 
@@ -94,11 +95,16 @@ class ClienteDetalleViewModel @Inject constructor(
         }
     }
 
-    fun eliminar() {
+    // Baja lógica o reactivación (solo administrador); funciona sin conexión y se sincroniza después
+    fun cambiarEstado(activo: Boolean) {
         viewModelScope.launch {
-            clienteRepository.eliminar(clienteId)
-                .onSuccess { _eventos.emit(EventoDetalleCliente.Eliminado) }
-                .onFailure { _eventos.emit(EventoDetalleCliente.Mensaje(it.message ?: "No se pudo eliminar")) }
+            clienteRepository.cambiarEstado(clienteId, activo)
+            gestorSincronizacion.sincronizarEnSegundoPlano()
+            _eventos.emit(
+                EventoDetalleCliente.Mensaje(
+                    if (activo) "Cliente reactivado" else "Cliente dado de baja. Su historial se conserva."
+                )
+            )
         }
     }
 }

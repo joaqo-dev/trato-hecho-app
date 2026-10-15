@@ -30,6 +30,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -125,7 +126,9 @@ class CotizacionFormViewModel @Inject constructor(
     private val _eventos = MutableSharedFlow<EventoFormCotizacion>()
     val eventos: SharedFlow<EventoFormCotizacion> = _eventos.asSharedFlow()
 
+    // Solo se puede cotizar a clientes activos (los dados de baja no aparecen)
     val clientes: StateFlow<List<ClienteConContactos>> = clienteRepository.observarClientes()
+        .map { lista -> lista.filter { it.cliente.activo } }
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val productos: StateFlow<List<ProductoEntity>> = catalogoRepository.observarProductos()
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
