@@ -11,6 +11,7 @@ object CalculadoraIndicadores {
 
     private val GANADAS = setOf(EstadoCotizacion.ACEPTADA, EstadoCotizacion.FACTURADA)
     private val PERDIDAS = setOf(EstadoCotizacion.RECHAZADA, EstadoCotizacion.VENCIDA)
+    private const val TRES_DIAS = 3L * 24 * 60 * 60 * 1000
     private val NO_CUENTAN = setOf(EstadoCotizacion.BORRADOR, EstadoCotizacion.ANULADA, EstadoCotizacion.REEMPLAZADA)
 
     fun calcular(cotizaciones: List<CotizacionEntity>, ahora: Long = System.currentTimeMillis()): Indicadores {
@@ -28,7 +29,21 @@ object CalculadoraIndicadores {
             .map { (nombre, lista) -> VendedorRanking(nombre, lista.sumOf { it.totalClp }, lista.size) }
             .sortedByDescending { it.montoGanado }
 
+        // Lo que el vendedor puede hacer algo hoy
+        val ganadasMes = vigentes.filter { it.estado in GANADAS && esDelMes(it.fechaRespuesta, ahora) }
+        val esperando = vigentes.filter { it.estado == EstadoCotizacion.ENVIADA || it.envioPendiente }
+        val vencenPronto = vigentes.count {
+            it.estado == EstadoCotizacion.ENVIADA && it.fechaVencimiento != null &&
+                it.fechaVencimiento >= ahora && it.fechaVencimiento - ahora <= TRES_DIAS
+        }
+
         return Indicadores(
+            montoGanadoMes = ganadasMes.sumOf { it.totalClp },
+            ganadasMes = ganadasMes.size,
+            porResponder = esperando.size,
+            montoPorResponder = esperando.sumOf { it.totalClp },
+            vencenPronto = vencenPronto,
+            borradores = vigentes.count { it.estado == EstadoCotizacion.BORRADOR && !it.envioPendiente },
             montoCotizadoMes = delMes.sumOf { it.totalClp },
             cotizacionesDelMes = delMes.size,
             tasaAceptacion = tasa,

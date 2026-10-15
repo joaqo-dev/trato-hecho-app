@@ -1,5 +1,9 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import cl.duoc.tratohecho.ui.components.AccionMenu
+import cl.duoc.tratohecho.ui.components.MenuAcciones
 import androidx.compose.runtime.remember
 import cl.duoc.tratohecho.utils.RutVisualTransformation
 import androidx.compose.animation.animateContentSize
@@ -159,6 +163,7 @@ fun ClienteFormScreen(
                 }
                 estado.contactos.forEach { contacto ->
                     Card(
+                        onClick = { viewModel.editarContacto(contacto) },
                         shape = MaterialTheme.shapes.large,
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceContainer,
@@ -175,12 +180,13 @@ fun ClienteFormScreen(
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
                             }
-                            IconButton(onClick = { viewModel.editarContacto(contacto) }) {
-                                Icon(Icons.Filled.Edit, contentDescription = "Editar contacto")
-                            }
-                            IconButton(onClick = { viewModel.eliminarContacto(contacto) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Quitar contacto")
-                            }
+                            MenuAcciones(
+                                listOf(
+                                    AccionMenu("Editar contacto", Icons.Outlined.Edit) { viewModel.editarContacto(contacto) },
+                                    AccionMenu("Quitar contacto", Icons.Outlined.Delete, destructiva = true) { viewModel.eliminarContacto(contacto) }
+                                ),
+                                descripcion = "Opciones de ${contacto.nombre}"
+                            )
                         }
                     }
                 }

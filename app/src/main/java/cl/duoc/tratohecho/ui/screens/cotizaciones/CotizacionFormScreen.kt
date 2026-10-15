@@ -1,5 +1,9 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import cl.duoc.tratohecho.ui.components.AccionMenu
+import cl.duoc.tratohecho.ui.components.MenuAcciones
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.background
 import androidx.compose.material3.ButtonDefaults
@@ -240,13 +244,15 @@ fun CotizacionFormScreen(
                     }
                 }
                 estado.items.forEach { item ->
-                    FilaItem(item, estado.moneda) {
-                        Column {
-                            IconButton(onClick = { viewModel.editarItem(item) }) { Icon(Icons.Filled.Edit, contentDescription = "Editar ítem") }
-                            IconButton(onClick = { viewModel.eliminarItem(item) }) {
-                                Icon(Icons.Filled.Delete, contentDescription = "Quitar ítem", tint = MaterialTheme.colorScheme.error)
-                            }
-                        }
+                    // Tocar la fila edita el ítem; el menú ⋮ tiene editar y quitar
+                    FilaItem(item, estado.moneda, onClick = { viewModel.editarItem(item) }) {
+                        MenuAcciones(
+                            listOf(
+                                AccionMenu("Editar ítem", Icons.Outlined.Edit) { viewModel.editarItem(item) },
+                                AccionMenu("Quitar de la cotización", Icons.Outlined.Delete, destructiva = true) { viewModel.eliminarItem(item) }
+                            ),
+                            descripcion = "Opciones de ${item.descripcion}"
+                        )
                     }
                 }
             }

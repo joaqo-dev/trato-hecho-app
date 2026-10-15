@@ -280,7 +280,7 @@ Cada estado es un par fondo suave + texto saturado, con su versión nocturna (fo
 **Character:** Una sola familia nativa, decisión fijada por el usuario para la plataforma; la jerarquía se construye con escalones de peso marcados (Bold, SemiBold, Medium, Normal) y tracking negativo en los tamaños grandes. Todo en sp para respetar la escala del sistema.
 
 ### Hierarchy
-- **Display** (Bold 700, 34sp, 40sp, -0.8sp, cifras tabulares): el monto "Cotizado este mes" de la tarjeta hero.
+- **Display** (Bold 700, 34sp, 40sp, -0.8sp, cifras tabulares): el monto "Ganado este mes" de la tarjeta hero.
 - **Headline** (Bold 700, 24sp, 30sp, -0.4sp): títulos de la barra superior y de login, y el total destacado de TarjetaTotales (con cifras tabulares).
 - **Title Large** (SemiBold 600, 20sp, 26sp, -0.2sp): saludo de inicio, número de cotización y razón social en la cabecera de detalle, total del formulario.
 - **Title Medium** (SemiBold 600, 16sp, 22sp, cifras tabulares): títulos de sección, número de cotización en tarjeta y totales (en Bold).
@@ -370,3 +370,7 @@ Historial del detalle: hora (Title Small) y fecha a la izquierda en 64dp, column
 - **Don't** poner dos tarjetas hero en la misma pantalla.
 - **Don't** usar colores dinámicos del sistema (Material You); la paleta propia es fija.
 - **Don't** escribir etiquetas de dato en mayúsculas espaciadas sobre los valores.
+
+## Acciones de fila
+
+Las filas editables (ítems de la cotización, contactos, usuarios, catálogo) se editan tocando la fila completa; las demás acciones van en un menú ⋮ (`MenuAcciones`) con íconos de contorno, y solo la acción destructiva (eliminar/quitar) se pinta en rojo. No se ponen pares de íconos editar/borrar sueltos al lado de cada fila.

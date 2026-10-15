@@ -1,5 +1,9 @@
 package cl.duoc.tratohecho.ui.screens.catalogo
 
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import cl.duoc.tratohecho.ui.components.AccionMenu
+import cl.duoc.tratohecho.ui.components.MenuAcciones
 import cl.duoc.tratohecho.ui.components.CargandoDatos
 import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
@@ -231,9 +235,13 @@ private fun FilaCatalogo(
                 )
             }
             if (esAdmin) {
-                IconButton(onClick = onEliminar) {
-                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
-                }
+                MenuAcciones(
+                    listOf(
+                        AccionMenu("Editar", Icons.Outlined.Edit, onClick = onClick),
+                        AccionMenu("Eliminar", Icons.Outlined.Delete, destructiva = true, onClick = onEliminar)
+                    ),
+                    descripcion = "Opciones de $titulo"
+                )
             }
         }
     }

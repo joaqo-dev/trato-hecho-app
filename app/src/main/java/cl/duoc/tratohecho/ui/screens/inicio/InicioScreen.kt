@@ -2,12 +2,7 @@ package cl.duoc.tratohecho.ui.screens.inicio
 
 import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.core.LinearEasing
-import androidx.compose.animation.core.RepeatMode
-import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.animation.core.infiniteRepeatable
-import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -39,7 +34,6 @@ import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.EmojiEvents
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.PersonAdd
-import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material.icons.outlined.Visibility
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material3.CircularProgressIndicator
@@ -60,7 +54,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.draw.rotate
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -119,12 +112,7 @@ fun InicioScreen(
             .padding(horizontal = 20.dp)
             .padding(top = 12.dp, bottom = ESPACIO_BARRA_NAVEGACION + 16.dp)
     ) {
-        Encabezado(
-            sesion = sesion,
-            sincronizando = sincronizando,
-            onSincronizar = onSincronizar,
-            onSalir = { confirmarSalida = true }
-        )
+        Encabezado(sesion = sesion, onSalir = { confirmarSalida = true })
         Spacer(Modifier.height(20.dp))
 
         TarjetaHero(
@@ -201,15 +189,7 @@ fun InicioScreen(
 }
 
 @Composable
-private fun Encabezado(sesion: Sesion, sincronizando: Boolean, onSincronizar: () -> Unit, onSalir: () -> Unit) {
-    // El ícono de sincronizar gira mientras se sincroniza
-    val giro = rememberInfiniteTransition(label = "giro")
-    val angulo by giro.animateFloat(
-        initialValue = 0f,
-        targetValue = 360f,
-        animationSpec = infiniteRepeatable(tween(900, easing = LinearEasing), RepeatMode.Restart),
-        label = "angulo"
-    )
+private fun Encabezado(sesion: Sesion, onSalir: () -> Unit) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Avatar(sesion.nombre)
         Spacer(Modifier.width(12.dp))
@@ -227,17 +207,15 @@ private fun Encabezado(sesion: Sesion, sincronizando: Boolean, onSincronizar: ()
                 overflow = TextOverflow.Ellipsis
             )
         }
-        BotonCircular(Icons.Filled.Sync, "Sincronizar", onSincronizar, habilitado = !sincronizando, rotacion = if (sincronizando) angulo else 0f)
-        Spacer(Modifier.width(8.dp))
+        // Para actualizar se desliza la pantalla hacia abajo
         BotonCircular(Icons.AutoMirrored.Filled.Logout, "Cerrar sesión", onSalir)
     }
 }
 
 @Composable
-private fun BotonCircular(icono: ImageVector, descripcion: String, onClick: () -> Unit, habilitado: Boolean = true, rotacion: Float = 0f) {
+private fun BotonCircular(icono: ImageVector, descripcion: String, onClick: () -> Unit) {
     FilledIconButton(
         onClick = onClick,
-        enabled = habilitado,
         colors = IconButtonDefaults.filledIconButtonColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
             contentColor = MaterialTheme.colorScheme.onSurface,
@@ -246,13 +224,14 @@ private fun BotonCircular(icono: ImageVector, descripcion: String, onClick: () -
         ),
         modifier = Modifier.size(48.dp)
     ) {
-        Icon(icono, contentDescription = descripcion, modifier = Modifier.rotate(rotacion))
+        Icon(icono, contentDescription = descripcion)
     }
 }
 
 private data class AccionHero(val texto: String, val icono: ImageVector, val onClick: () -> Unit)
 
-// Tarjeta principal negra: monto cotizado del mes (se puede ocultar) y las dos acciones más usadas
+// Tarjeta principal negra: lo ganado este mes y lo que requiere atención hoy
+// (cotizaciones esperando respuesta, las que vencen pronto y los borradores sin enviar)
 @Composable
 private fun TarjetaHero(
     indicadores: Indicadores,
@@ -262,12 +241,12 @@ private fun TarjetaHero(
 ) {
     val colores = TratoTheme.colores
     val monto by animateFloatAsState(
-        indicadores.montoCotizadoMes.toFloat(),
+        indicadores.montoGanadoMes.toFloat(),
         animationSpec = tween(900, easing = EaseOutFuerte),
-        label = "monto_mes"
+        label = "monto_ganado"
     )
     // Al terminar la animación se muestra el valor exacto (Float pierde precisión en montos grandes)
-    val montoVisible = if (monto == indicadores.montoCotizadoMes.toFloat()) indicadores.montoCotizadoMes else monto.toDouble()
+    val montoVisible = if (monto == indicadores.montoGanadoMes.toFloat()) indicadores.montoGanadoMes else monto.toDouble()
 
     Column(
         modifier = Modifier
@@ -279,7 +258,7 @@ private fun TarjetaHero(
     ) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f)) {
-                Text("Cotizado este mes", style = MaterialTheme.typography.bodyMedium, color = colores.enHeroSuave)
+                Text("Ganado este mes", style = MaterialTheme.typography.bodyMedium, color = colores.enHeroSuave)
                 Spacer(Modifier.height(6.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     AnimatedContent(
@@ -304,18 +283,68 @@ private fun TarjetaHero(
                 }
             }
             Text(
-                if (indicadores.cotizacionesDelMes == 1) "1 cotización" else "${indicadores.cotizacionesDelMes} cotizaciones",
+                if (indicadores.ganadasMes == 1) "1 aceptada" else "${indicadores.ganadasMes} aceptadas",
                 style = MaterialTheme.typography.labelMedium,
                 color = colores.enHeroSuave,
                 modifier = Modifier.padding(top = 2.dp)
             )
         }
-        Spacer(Modifier.height(20.dp))
+
+        // Lo que requiere atención
+        Spacer(Modifier.height(14.dp))
+        Row(Modifier.height(IntrinsicSize.Min)) {
+            CifraHero(
+                valor = indicadores.porResponder.toString(),
+                etiqueta = "Por responder",
+                primera = true,
+                detalle = if (ocultos) "$ •••" else Formatos.monto(indicadores.montoPorResponder),
+                modifier = Modifier.weight(1.3f)
+            )
+            VerticalDivider(Modifier.fillMaxHeight(), color = colores.enHeroSuave.copy(alpha = 0.3f))
+            CifraHero(
+                valor = indicadores.vencenPronto.toString(),
+                etiqueta = "Por vencer",
+                detalle = "en 3 días",
+                destacado = indicadores.vencenPronto > 0,
+                modifier = Modifier.weight(1f)
+            )
+            VerticalDivider(Modifier.fillMaxHeight(), color = colores.enHeroSuave.copy(alpha = 0.3f))
+            CifraHero(
+                valor = indicadores.borradores.toString(),
+                etiqueta = "Borradores",
+                detalle = "por enviar",
+                modifier = Modifier.weight(1f)
+            )
+        }
+
+        Spacer(Modifier.height(18.dp))
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             acciones.forEach { accion ->
                 BotonHero(accion, Modifier.weight(1f))
             }
         }
+    }
+}
+
+// Cifra chica dentro de la tarjeta negra. "destacado" la pinta en ámbar (requiere atención).
+@Composable
+private fun CifraHero(
+    valor: String,
+    etiqueta: String,
+    detalle: String,
+    modifier: Modifier = Modifier,
+    destacado: Boolean = false,
+    primera: Boolean = false   // la primera cifra se alinea con el borde de la tarjeta
+) {
+    val colores = TratoTheme.colores
+    Column(modifier.padding(start = if (primera) 0.dp else 12.dp, end = 8.dp)) {
+        Text(
+            valor,
+            style = MaterialTheme.typography.titleLarge,
+            color = if (destacado) MaterialTheme.colorScheme.secondary else colores.enHero
+        )
+        Text(etiqueta, style = MaterialTheme.typography.labelMedium, color = colores.enHero, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(detalle, style = MaterialTheme.typography.labelSmall, color = colores.enHeroSuave, maxLines = 1)
     }
 }
 
@@ -350,7 +379,6 @@ private fun BotonHero(accion: AccionHero, modifier: Modifier = Modifier) {
 @Composable
 private fun TarjetaResumen(indicadores: Indicadores, ocultos: Boolean) {
     val tasa by animateFloatAsState(indicadores.tasaAceptacion.toFloat(), tween(900, easing = EaseOutFuerte), label = "tasa")
-    val porResponder = indicadores.porEstado[EstadoCotizacion.ENVIADA] ?: 0
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -361,7 +389,7 @@ private fun TarjetaResumen(indicadores: Indicadores, ocultos: Boolean) {
     ) {
         Cifra("Aceptación", Formatos.porcentaje(tasa.toDouble()), Modifier.weight(1f))
         VerticalDivider(Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outline)
-        Cifra("Por responder", porResponder.toString(), Modifier.weight(1f))
+        Cifra("Enviadas este mes", indicadores.cotizacionesDelMes.toString(), Modifier.weight(1f))
         VerticalDivider(Modifier.fillMaxHeight(), color = MaterialTheme.colorScheme.outline)
         Cifra("Facturado", if (ocultos) "$ •••" else Formatos.monto(indicadores.montoFacturado), Modifier.weight(1.3f))
     }

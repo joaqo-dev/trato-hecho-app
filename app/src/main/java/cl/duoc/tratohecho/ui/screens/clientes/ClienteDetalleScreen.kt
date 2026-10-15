@@ -1,5 +1,9 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import cl.duoc.tratohecho.ui.components.AccionMenu
+import cl.duoc.tratohecho.ui.components.MenuAcciones
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.Spacer
@@ -104,18 +108,15 @@ fun ClienteDetalleScreen(
                 titulo = "Cliente",
                 onVolver = onVolver,
                 acciones = {
-                    if (puedeReasignar && cliente != null) {
-                        IconButton(onClick = viewModel::abrirReasignar) {
-                            Icon(Icons.Filled.SwapHoriz, contentDescription = "Reasignar vendedor")
-                        }
-                    }
-                    if (puedeEditar && cliente != null) {
-                        IconButton(onClick = { onEditar(cliente!!.cliente.id) }) {
-                            Icon(Icons.Filled.Edit, contentDescription = "Editar")
-                        }
-                        IconButton(onClick = { confirmarEliminar = true }) {
-                            Icon(Icons.Filled.Delete, contentDescription = "Eliminar")
-                        }
+                    val id = cliente?.cliente?.id
+                    if (id != null && (puedeReasignar || puedeEditar)) {
+                        MenuAcciones(
+                            buildList {
+                                if (puedeEditar) add(AccionMenu("Editar cliente", Icons.Outlined.Edit) { onEditar(id) })
+                                if (puedeReasignar) add(AccionMenu("Reasignar vendedor", Icons.Filled.SwapHoriz) { viewModel.abrirReasignar() })
+                                if (puedeEditar) add(AccionMenu("Eliminar cliente", Icons.Outlined.Delete, destructiva = true) { confirmarEliminar = true })
+                            }
+                        )
                     }
                 }
             )

@@ -1,5 +1,12 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
+import cl.duoc.tratohecho.ui.theme.Pildora
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Edit
+import cl.duoc.tratohecho.ui.components.AccionMenu
+import cl.duoc.tratohecho.ui.components.MenuAcciones
 import cl.duoc.tratohecho.ui.components.BotonFlotante
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
@@ -86,7 +93,7 @@ fun UsuariosScreen(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier
-                                .padding(start = 14.dp, top = 8.dp, bottom = 8.dp, end = 4.dp)
+                                .padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp)
                                 .alpha(if (usuario.activo) 1f else 0.5f)
                         ) {
                             Column(Modifier.weight(1f)) {
@@ -95,8 +102,15 @@ fun UsuariosScreen(
                                     style = MaterialTheme.typography.titleMedium
                                 )
                                 Text(usuario.correo, style = MaterialTheme.typography.bodySmall)
-                                Row {
-                                    AssistChip(onClick = {}, label = { Text(usuario.rol.etiqueta) })
+                                Row(Modifier.padding(top = 6.dp)) {
+                                    Text(
+                                        usuario.rol.etiqueta,
+                                        style = MaterialTheme.typography.labelMedium,
+                                        modifier = Modifier
+                                            .clip(Pildora)
+                                            .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+                                            .padding(horizontal = 12.dp, vertical = 5.dp)
+                                    )
                                     if (!usuario.activo) {
                                         Text(
                                             "  Desactivado",
@@ -107,11 +121,16 @@ fun UsuariosScreen(
                                     }
                                 }
                             }
-                            if (usuario.id != sesion.usuarioId) {
-                                IconButton(onClick = { aEliminar = usuario }) {
-                                    Icon(Icons.Filled.Delete, contentDescription = "Eliminar", tint = MaterialTheme.colorScheme.error)
-                                }
-                            }
+                            MenuAcciones(
+                                buildList {
+                                    add(AccionMenu("Editar usuario", Icons.Outlined.Edit) { onEditar(usuario.id) })
+                                    // No se puede eliminar el propio usuario
+                                    if (usuario.id != sesion.usuarioId) {
+                                        add(AccionMenu("Eliminar usuario", Icons.Outlined.Delete, destructiva = true) { aEliminar = usuario })
+                                    }
+                                },
+                                descripcion = "Opciones de ${usuario.nombre}"
+                            )
                         }
                     }
                 }

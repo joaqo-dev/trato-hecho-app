@@ -25,13 +25,18 @@ fun FilaItem(
     item: ItemCotizacionEntity,
     moneda: Moneda,
     modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null,
     acciones: @Composable () -> Unit = {}
 ) {
     Card(
+        onClick = onClick ?: {},
+        enabled = onClick != null,
         shape = MaterialTheme.shapes.medium,
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainer,
-            contentColor = MaterialTheme.colorScheme.onSurface
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContentColor = MaterialTheme.colorScheme.onSurface
         ),
         modifier = modifier.fillMaxWidth()
     ) {
