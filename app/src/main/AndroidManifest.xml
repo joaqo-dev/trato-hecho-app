@@ -9,6 +9,14 @@
     <!-- Recurso nativo: notificaciones (Android 13+ se pide en tiempo de ejecución) -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
 
+    <!-- Para saber si hay una app de correo instalada (visibilidad de paquetes, Android 11+) -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.SENDTO" />
+            <data android:scheme="mailto" />
+        </intent>
+    </queries>
+
     <application
         android:name=".TratoHechoApp"
         android:allowBackup="true"

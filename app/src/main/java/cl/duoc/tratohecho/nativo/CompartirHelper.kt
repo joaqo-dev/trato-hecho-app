@@ -26,9 +26,17 @@ class CompartirHelper @Inject constructor(
             putExtra(Intent.EXTRA_STREAM, uri)
             addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             clipData = ClipData.newRawUri("", uri)
-            // Solo se muestran apps de correo
-            selector = Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:"))
         }
-        return Intent.createChooser(intent, "Enviar cotización por correo")
+        // Apps de correo instaladas (las que abren un "mailto:")
+        val appsCorreo = context.packageManager
+            .queryIntentActivities(Intent(Intent.ACTION_SENDTO, Uri.parse("mailto:")), 0)
+            .map { it.activityInfo.packageName }
+            .distinct()
+        // Con una sola app de correo se abre directo; si hay varias o ninguna, se muestra el menú de compartir
+        return if (appsCorreo.size == 1) {
+            intent.setPackage(appsCorreo.first())
+        } else {
+            Intent.createChooser(intent, "Enviar cotización por correo")
+        }
     }
 }
