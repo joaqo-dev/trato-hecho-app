@@ -1,5 +1,8 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.material.icons.filled.CloudOff
+import cl.duoc.tratohecho.ui.components.CargandoDatos
+import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
 import androidx.compose.runtime.remember
@@ -61,6 +64,9 @@ fun ClientesScreen(
     sesion: Sesion,
     onAbrir: (String) -> Unit,
     onNuevo: () -> Unit,
+    actualizando: Boolean,
+    sinConexion: Boolean,
+    onActualizar: () -> Unit,
     viewModel: ClientesViewModel = hiltViewModel()
 ) {
     val clientes by viewModel.clientes.collectAsStateWithLifecycle()
@@ -83,24 +89,36 @@ fun ClientesScreen(
                 modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
             )
             val lista = clientes
-            when {
-                lista == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                lista.isEmpty() -> EstadoVacio(
-                    icono = Icons.Filled.PersonSearch,
-                    titulo = if (busqueda.isBlank()) "Aún no hay clientes" else "Sin resultados",
-                    mensaje = if (busqueda.isBlank()) "Registra tu primer cliente, incluso sin conexión." else "Prueba con otro nombre o RUT."
-                )
-                else -> LazyColumn(
+            ContenidoActualizable(actualizando, onActualizar, Modifier.fillMaxSize()) {
+                LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = ESPACIO_BARRA_NAVEGACION + 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    items(lista, key = { it.cliente.id }) { cliente ->
-                        TarjetaCliente(
-                            cliente,
-                            mostrarVendedor = sesion.rol != Rol.VENDEDOR,
-                            onClick = { onAbrir(cliente.cliente.id) },
-                            modifier = Modifier.animateItem()
-                        )
+                    when {
+                        lista == null || (lista.isEmpty() && actualizando) -> item { CargandoDatos("Cargando clientes…") }
+                        lista.isEmpty() && sinConexion && busqueda.isBlank() -> item {
+                            EstadoVacio(
+                                icono = Icons.Filled.CloudOff,
+                                titulo = "Sin conexión",
+                                mensaje = "No hay clientes guardados en el teléfono. Igual puedes registrar uno nuevo; se sincronizará al volver la señal."
+                            )
+                        }
+                        lista.isEmpty() -> item {
+                            EstadoVacio(
+                                icono = Icons.Filled.PersonSearch,
+                                titulo = if (busqueda.isBlank()) "Aún no hay clientes" else "Sin resultados",
+                                mensaje = if (busqueda.isBlank()) "Registra tu primer cliente, incluso sin conexión." else "Prueba con otro nombre o RUT."
+                            )
+                        }
+                        else -> items(lista, key = { it.cliente.id }) { cliente ->
+                            TarjetaCliente(
+                                cliente,
+                                mostrarVendedor = sesion.rol != Rol.VENDEDOR,
+                                onClick = { onAbrir(cliente.cliente.id) },
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }

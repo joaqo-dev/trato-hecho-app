@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.ui.screens.catalogo
 
+import cl.duoc.tratohecho.ui.components.CargandoDatos
+import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
 import cl.duoc.tratohecho.ui.theme.Pildora
 import cl.duoc.tratohecho.ui.components.BarraSeccion
@@ -65,6 +67,8 @@ fun CatalogoScreen(
     onEditarUnidad: (String) -> Unit,
     onNuevoImpuesto: () -> Unit,
     onEditarImpuesto: (String) -> Unit,
+    actualizando: Boolean,
+    onActualizar: () -> Unit,
     viewModel: CatalogoViewModel = hiltViewModel()
 ) {
     val productos by viewModel.productos.collectAsStateWithLifecycle()
@@ -78,7 +82,7 @@ fun CatalogoScreen(
     LaunchedEffect(Unit) { viewModel.mensajes.collect { mostrarMensaje(it) } }
 
     Scaffold(
-        topBar = { BarraSeccion("Catálogo") },
+        topBar = { BarraSeccion(if (esAdmin) "Catálogo" else "Productos y servicios") },
         floatingActionButton = {
             if (esAdmin) {
                 FloatingActionButton(
@@ -98,20 +102,17 @@ fun CatalogoScreen(
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            PrimaryTabRow(selectedTabIndex = pestana) {
-                Tab(selected = pestana == 0, onClick = { pestana = 0 }, text = { Text("Productos") })
-                Tab(selected = pestana == 1, onClick = { pestana = 1 }, text = { Text("Unidades") })
-                Tab(selected = pestana == 2, onClick = { pestana = 2 }, text = { Text("Impuestos") })
+            // Unidades e impuestos solo le sirven al administrador (que los mantiene);
+            // vendedor y supervisor ven directamente la lista de productos
+            if (esAdmin) {
+                PrimaryTabRow(selectedTabIndex = pestana, containerColor = MaterialTheme.colorScheme.background) {
+                    Tab(selected = pestana == 0, onClick = { pestana = 0 }, text = { Text("Productos") })
+                    Tab(selected = pestana == 1, onClick = { pestana = 1 }, text = { Text("Unidades") })
+                    Tab(selected = pestana == 2, onClick = { pestana = 2 }, text = { Text("Impuestos") })
+                }
             }
-            if (!esAdmin) {
-                Text(
-                    "Solo lectura: el administrador mantiene el catálogo",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 20.dp, top = 10.dp)
-                )
-            }
-            // Transición animada al cambiar de pestaña
+            // Transición animada al cambiar de pestaña; deslizar hacia abajo actualiza desde la API
+            ContenidoActualizable(actualizando, onActualizar, Modifier.fillMaxSize()) {
             AnimatedContent(targetState = pestana, label = "pestana_catalogo") { seleccion ->
                 LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = ESPACIO_BARRA_NAVEGACION + 80.dp),
@@ -120,7 +121,8 @@ fun CatalogoScreen(
                 ) {
                     when (seleccion) {
                         0 -> {
-                            if (productos.isEmpty()) item {
+                            if (productos.isEmpty() && actualizando) item { CargandoDatos("Cargando catálogo…") }
+                            else if (productos.isEmpty()) item {
                                 EstadoVacio(Icons.Filled.Inventory2, "Sin productos", "Agrega productos o servicios para cotizar más rápido.")
                             }
                             items(productos, key = { it.producto.id }) { p ->
@@ -170,6 +172,7 @@ fun CatalogoScreen(
                         }
                     }
                 }
+            }
             }
         }
     }

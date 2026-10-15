@@ -186,14 +186,20 @@ fun PrincipalScreen(
                 CotizacionesScreen(
                     sesion = sesionActual,
                     onAbrir = { navController.navigate(AppRoutes.cotizacionDetalle(it)) },
-                    onNueva = { navController.navigate(AppRoutes.cotizacionForm()) }
+                    onNueva = { navController.navigate(AppRoutes.cotizacionForm()) },
+                    actualizando = sincronizando,
+                    sinConexion = !hayConexion,
+                    onActualizar = viewModel::sincronizar
                 )
             }
             composable(AppRoutes.CLIENTES) {
                 ClientesScreen(
                     sesion = sesionActual,
                     onAbrir = { navController.navigate(AppRoutes.clienteDetalle(it)) },
-                    onNuevo = { navController.navigate(AppRoutes.clienteForm()) }
+                    onNuevo = { navController.navigate(AppRoutes.clienteForm()) },
+                    actualizando = sincronizando,
+                    sinConexion = !hayConexion,
+                    onActualizar = viewModel::sincronizar
                 )
             }
             composable(AppRoutes.CATALOGO) {
@@ -205,7 +211,9 @@ fun PrincipalScreen(
                     onNuevaUnidad = { navController.navigate(AppRoutes.unidadForm()) },
                     onEditarUnidad = { navController.navigate(AppRoutes.unidadForm(it)) },
                     onNuevoImpuesto = { navController.navigate(AppRoutes.impuestoForm()) },
-                    onEditarImpuesto = { navController.navigate(AppRoutes.impuestoForm(it)) }
+                    onEditarImpuesto = { navController.navigate(AppRoutes.impuestoForm(it)) },
+                    actualizando = sincronizando,
+                    onActualizar = viewModel::sincronizar
                 )
             }
             composable(AppRoutes.AJUSTES) {

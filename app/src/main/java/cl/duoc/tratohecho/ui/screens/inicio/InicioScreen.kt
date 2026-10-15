@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.inicio
 
+import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
@@ -77,7 +78,6 @@ import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
 import cl.duoc.tratohecho.ui.components.EstadoVacio
 import cl.duoc.tratohecho.ui.components.TarjetaCotizacion
 import cl.duoc.tratohecho.ui.components.TituloSeccion
-import cl.duoc.tratohecho.ui.components.colorDeEstado
 import cl.duoc.tratohecho.ui.components.efectoPresion
 import cl.duoc.tratohecho.ui.theme.DURACION_CORTA
 import cl.duoc.tratohecho.ui.theme.EaseOutFuerte
@@ -111,6 +111,7 @@ fun InicioScreen(
         return
     }
 
+    ContenidoActualizable(sincronizando, onSincronizar, Modifier.fillMaxSize()) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -174,12 +175,11 @@ fun InicioScreen(
 
         TituloSeccion(if (esVendedor) "Tu resumen" else "Resumen de la empresa")
         TarjetaResumen(datos.indicadores, montosOcultos)
-        Spacer(Modifier.height(12.dp))
-        TarjetaPorEstado(datos.indicadores)
         if (!esVendedor) {
             Spacer(Modifier.height(12.dp))
             TarjetaRanking(datos.indicadores, montosOcultos)
         }
+    }
     }
 
     if (confirmarSalida) {
@@ -372,60 +372,6 @@ private fun Cifra(etiqueta: String, valor: String, modifier: Modifier = Modifier
     Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = modifier.padding(horizontal = 6.dp)) {
         Text(valor, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, maxLines = 1)
         Text(etiqueta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1)
-    }
-}
-
-@Composable
-private fun TarjetaPorEstado(datos: Indicadores) {
-    val estados = listOf(
-        EstadoCotizacion.BORRADOR, EstadoCotizacion.ENVIADA, EstadoCotizacion.ACEPTADA,
-        EstadoCotizacion.RECHAZADA, EstadoCotizacion.FACTURADA, EstadoCotizacion.VENCIDA, EstadoCotizacion.ANULADA
-    )
-    val maximo = (datos.porEstado.values.maxOrNull() ?: 1).coerceAtLeast(1)
-
-    Column(
-        verticalArrangement = Arrangement.spacedBy(10.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(MaterialTheme.shapes.large)
-            .background(MaterialTheme.colorScheme.surfaceContainer)
-            .padding(18.dp)
-    ) {
-        Text("Cotizaciones por estado", style = MaterialTheme.typography.titleSmall)
-        estados.forEach { estado ->
-            val cantidad = datos.porEstado[estado] ?: 0
-            val ancho by animateFloatAsState(cantidad.toFloat() / maximo, animationSpec = tween(800, easing = EaseOutFuerte), label = "barra")
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    estado.etiqueta,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.width(92.dp)
-                )
-                Box(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp))
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest)
-                ) {
-                    if (cantidad > 0) {
-                        Box(
-                            Modifier
-                                .fillMaxWidth(ancho)
-                                .fillMaxHeight()
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(colorDeEstado(estado))
-                        )
-                    }
-                }
-                Text(
-                    cantidad.toString(),
-                    style = MaterialTheme.typography.labelLarge,
-                    modifier = Modifier.width(32.dp).padding(start = 10.dp)
-                )
-            }
-        }
     }
 }
 
