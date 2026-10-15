@@ -320,16 +320,14 @@ private fun DialogoItem(
                     error = estado.errores.producto
                 )
                 CampoTexto(estado.descripcion, onDescripcion, "Descripción", Icons.AutoMirrored.Filled.ShortText, error = estado.errores.descripcion)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    CampoTexto(
-                        estado.cantidad, onCantidad, "Cantidad ${estado.unidad}".trim(), Icons.Filled.Numbers,
-                        error = estado.errores.cantidad, tipoTeclado = KeyboardType.Decimal, modifier = Modifier.weight(1f)
-                    )
-                    CampoTexto(
-                        estado.precio, onPrecio, "Precio (${moneda.simbolo})", Icons.Filled.AttachMoney,
-                        error = estado.errores.precio, tipoTeclado = KeyboardType.Decimal, modifier = Modifier.weight(1f)
-                    )
-                }
+                CampoTexto(
+                    estado.cantidad, onCantidad, "Cantidad ${estado.unidad}".trim(), Icons.Filled.Numbers,
+                    error = estado.errores.cantidad, tipoTeclado = KeyboardType.Decimal
+                )
+                CampoTexto(
+                    estado.precio, onPrecio, "Precio unitario (${moneda.simbolo})", Icons.Filled.AttachMoney,
+                    error = estado.errores.precio, tipoTeclado = KeyboardType.Decimal
+                )
                 Text("Descuento del ítem", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 4.dp))
                 SelectorOpciones(
                     opciones = TipoDescuento.entries,

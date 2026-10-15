@@ -6,11 +6,15 @@ import android.util.Patterns
 // Se usan desde los ViewModel, así la lógica no queda dentro de los componentes visuales.
 object Validaciones {
 
+    // "La descripción es obligatoria" / "El nombre es obligatorio"
+    private fun obligatorio(campo: String): String =
+        if (campo.startsWith("La ")) "$campo es obligatoria" else obligatorio(campo)
+
     fun requerido(valor: String, campo: String): String? =
-        if (valor.isBlank()) "$campo es obligatorio" else null
+        if (valor.isBlank()) obligatorio(campo) else null
 
     fun largo(valor: String, campo: String, min: Int, max: Int): String? = when {
-        valor.isBlank() -> "$campo es obligatorio"
+        valor.isBlank() -> obligatorio(campo)
         valor.trim().length < min -> "$campo debe tener al menos $min caracteres"
         valor.trim().length > max -> "$campo no puede superar $max caracteres"
         else -> null
@@ -56,7 +60,7 @@ object Validaciones {
     fun numeroPositivo(valor: String, campo: String): String? {
         val numero = valor.replace(",", ".").toDoubleOrNull()
         return when {
-            valor.isBlank() -> "$campo es obligatorio"
+            valor.isBlank() -> obligatorio(campo)
             numero == null -> "$campo debe ser un número"
             numero <= 0 -> "$campo debe ser mayor a 0"
             else -> null
@@ -66,7 +70,7 @@ object Validaciones {
     fun rango(valor: String, campo: String, min: Double, max: Double): String? {
         val numero = valor.replace(",", ".").toDoubleOrNull()
         return when {
-            valor.isBlank() -> "$campo es obligatorio"
+            valor.isBlank() -> obligatorio(campo)
             numero == null -> "$campo debe ser un número"
             numero < min || numero > max -> "$campo debe estar entre ${min.toInt()} y ${max.toInt()}"
             else -> null
