@@ -94,7 +94,12 @@ fun ClientesScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     items(lista, key = { it.cliente.id }) { cliente ->
-                        TarjetaCliente(cliente, onClick = { onAbrir(cliente.cliente.id) }, modifier = Modifier.animateItem())
+                        TarjetaCliente(
+                            cliente,
+                            mostrarVendedor = sesion.rol != Rol.VENDEDOR,
+                            onClick = { onAbrir(cliente.cliente.id) },
+                            modifier = Modifier.animateItem()
+                        )
                     }
                 }
             }
@@ -103,7 +108,12 @@ fun ClientesScreen(
 }
 
 @Composable
-private fun TarjetaCliente(cliente: ClienteConContactos, onClick: () -> Unit, modifier: Modifier = Modifier) {
+private fun TarjetaCliente(
+    cliente: ClienteConContactos,
+    mostrarVendedor: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
     Card(
         onClick = onClick,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
@@ -128,7 +138,8 @@ private fun TarjetaCliente(cliente: ClienteConContactos, onClick: () -> Unit, mo
             Column(Modifier.weight(1f)) {
                 Text(cliente.cliente.razonSocial, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
-                    "${cliente.cliente.rut} · ${cliente.contactos.size} contacto(s)",
+                    if (mostrarVendedor) "${cliente.cliente.rut} · ${cliente.cliente.vendedorNombre}"
+                    else "${cliente.cliente.rut} · ${cliente.contactos.size} contacto(s)",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

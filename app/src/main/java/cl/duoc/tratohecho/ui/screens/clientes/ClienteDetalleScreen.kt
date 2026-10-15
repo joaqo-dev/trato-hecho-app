@@ -1,6 +1,16 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.material.icons.filled.SupportAgent
+import androidx.compose.material.icons.filled.SwapHoriz
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.TextButton
+import androidx.compose.ui.semantics.Role
+import cl.duoc.tratohecho.ui.components.MensajeError
+import cl.duoc.tratohecho.viewmodel.ReasignarUiState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -59,9 +69,12 @@ fun ClienteDetalleScreen(
 ) {
     val cliente by viewModel.cliente.collectAsStateWithLifecycle()
     val cotizaciones by viewModel.cotizaciones.collectAsStateWithLifecycle()
+    val reasignar by viewModel.reasignar.collectAsStateWithLifecycle()
     var confirmarEliminar by remember { mutableStateOf(false) }
     // El administrador solo consulta; vendedor y supervisor pueden modificar
     val puedeEditar = sesion.rol != Rol.ADMINISTRADOR
+    // Administrador y supervisor pueden cambiar el vendedor a cargo
+    val puedeReasignar = sesion.rol != Rol.VENDEDOR
 
     LaunchedEffect(Unit) {
         viewModel.eventos.collect { evento ->
@@ -81,6 +94,11 @@ fun ClienteDetalleScreen(
                 titulo = cliente?.cliente?.razonSocial ?: "Cliente",
                 onVolver = onVolver,
                 acciones = {
+                    if (puedeReasignar && cliente != null) {
+                        IconButton(onClick = viewModel::abrirReasignar) {
+                            Icon(Icons.Filled.SwapHoriz, contentDescription = "Reasignar vendedor")
+                        }
+                    }
                     if (puedeEditar && cliente != null) {
                         IconButton(onClick = { onEditar(cliente!!.cliente.id) }) {
                             Icon(Icons.Filled.Edit, contentDescription = "Editar")
@@ -116,6 +134,9 @@ fun ClienteDetalleScreen(
                     FilaDato(Icons.Filled.LocationOn, datos.cliente.direccion)
                     FilaDato(Icons.Filled.Email, datos.cliente.correo)
                     FilaDato(Icons.Filled.Phone, datos.cliente.telefono)
+                    if (datos.cliente.vendedorNombre.isNotBlank()) {
+                        FilaDato(Icons.Filled.SupportAgent, "Vendedor a cargo: ${datos.cliente.vendedorNombre}")
+                    }
                     if (datos.cliente.pendienteSync) {
                         Text(
                             "Pendiente de sincronizar",
@@ -156,6 +177,15 @@ fun ClienteDetalleScreen(
         }
     }
 
+    reasignar?.let { dialogo ->
+        DialogoReasignar(
+            estado = dialogo,
+            onSeleccionar = viewModel::onVendedorSeleccionado,
+            onConfirmar = viewModel::confirmarReasignar,
+            onCancelar = viewModel::cerrarReasignar
+        )
+    }
+
     if (confirmarEliminar) {
         DialogoConfirmacion(
             titulo = "Eliminar cliente",
@@ -168,4 +198,58 @@ fun ClienteDetalleScreen(
             onCancelar = { confirmarEliminar = false }
         )
     }
+}
+
+// Diálogo para elegir el nuevo vendedor a cargo (lista traída desde la API)
+@Composable
+private fun DialogoReasignar(
+    estado: ReasignarUiState,
+    onSeleccionar: (String) -> Unit,
+    onConfirmar: () -> Unit,
+    onCancelar: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onCancelar,
+        title = { Text("Reasignar cliente") },
+        text = {
+            Column {
+                Text(
+                    "Las cotizaciones que ya tiene siguen siendo del vendedor que las hizo.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                if (estado.cargando) {
+                    Box(Modifier.fillMaxWidth().padding(24.dp), contentAlignment = Alignment.Center) {
+                        CircularProgressIndicator()
+                    }
+                }
+                estado.vendedores.forEach { vendedor ->
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .selectable(
+                                selected = estado.seleccionadoId == vendedor.id,
+                                onClick = { onSeleccionar(vendedor.id) },
+                                role = Role.RadioButton
+                            )
+                            .padding(vertical = 4.dp)
+                    ) {
+                        RadioButton(selected = estado.seleccionadoId == vendedor.id, onClick = null)
+                        Column(Modifier.padding(start = 8.dp)) {
+                            Text(vendedor.nombre, style = MaterialTheme.typography.bodyLarge)
+                            Text(vendedor.correo, style = MaterialTheme.typography.bodySmall)
+                        }
+                    }
+                }
+                MensajeError(estado.error)
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onConfirmar, enabled = !estado.cargando && !estado.guardando) {
+                Text(if (estado.guardando) "Guardando…" else "Reasignar")
+            }
+        },
+        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
+    )
 }
