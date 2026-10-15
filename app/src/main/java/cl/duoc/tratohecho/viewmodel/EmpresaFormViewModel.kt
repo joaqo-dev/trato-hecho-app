@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.tratohecho.data.local.entity.EmpresaEntity
 import cl.duoc.tratohecho.data.repository.EmpresaRepository
+import cl.duoc.tratohecho.utils.RutVisualTransformation
 import cl.duoc.tratohecho.utils.Validaciones
 import cl.duoc.tratohecho.utils.ValidadorRut
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -59,7 +60,7 @@ class EmpresaFormViewModel @Inject constructor(
         viewModelScope.launch {
             val e = empresaRepository.obtenerEmpresa()
             _estado.value = if (e == null) EmpresaFormUiState(cargando = false) else EmpresaFormUiState(
-                id = e.id, cargando = false, razonSocial = e.razonSocial, rut = e.rut, giro = e.giro,
+                id = e.id, cargando = false, razonSocial = e.razonSocial, rut = ValidadorRut.limpiar(e.rut), giro = e.giro,
                 direccion = e.direccion, correo = e.correo, telefono = e.telefono
             )
         }
@@ -71,16 +72,12 @@ class EmpresaFormViewModel @Inject constructor(
     }
 
     fun onRazonSocialChange(v: String) = actualizar { it.copy(razonSocial = v) }
-    fun onRutChange(v: String) = actualizar { it.copy(rut = v) }
+    fun onRutChange(v: String) = actualizar { it.copy(rut = RutVisualTransformation.limpiarEntrada(v)) }
     fun onGiroChange(v: String) = actualizar { it.copy(giro = v) }
     fun onDireccionChange(v: String) = actualizar { it.copy(direccion = v) }
     fun onCorreoChange(v: String) = actualizar { it.copy(correo = v) }
     fun onTelefonoChange(v: String) = actualizar { it.copy(telefono = v) }
 
-    fun formatearRut() {
-        val rut = _estado.value.rut
-        if (ValidadorRut.esValido(rut)) actualizar { it.copy(rut = ValidadorRut.formatear(rut)) }
-    }
 
     private fun validar(e: EmpresaFormUiState) = EmpresaErrores(
         razonSocial = Validaciones.largo(e.razonSocial, "La razón social", 3, 80),

@@ -9,6 +9,7 @@ import cl.duoc.tratohecho.data.local.entity.ContactoEntity
 import cl.duoc.tratohecho.data.repository.ClienteRepository
 import cl.duoc.tratohecho.data.sync.GestorSincronizacion
 import cl.duoc.tratohecho.nativo.MonitorRed
+import cl.duoc.tratohecho.utils.RutVisualTransformation
 import cl.duoc.tratohecho.utils.Validaciones
 import cl.duoc.tratohecho.utils.ValidadorRut
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -100,7 +101,7 @@ class ClienteFormViewModel @Inject constructor(
                 val c = existente.cliente
                 ClienteFormUiState(
                     id = c.id, esNuevo = false, empresaId = c.empresaId, vendedorId = c.vendedorId, vendedorNombre = c.vendedorNombre,
-                    rut = c.rut, razonSocial = c.razonSocial, giro = c.giro, direccion = c.direccion,
+                    rut = ValidadorRut.limpiar(c.rut), razonSocial = c.razonSocial, giro = c.giro, direccion = c.direccion,
                     correo = c.correo, telefono = c.telefono, contactos = existente.contactos
                 )
             } else {
@@ -122,18 +123,13 @@ class ClienteFormViewModel @Inject constructor(
         }
     }
 
-    fun onRutChange(v: String) = actualizar { it.copy(rut = v) }
+    fun onRutChange(v: String) = actualizar { it.copy(rut = RutVisualTransformation.limpiarEntrada(v)) }
     fun onRazonSocialChange(v: String) = actualizar { it.copy(razonSocial = v) }
     fun onGiroChange(v: String) = actualizar { it.copy(giro = v) }
     fun onDireccionChange(v: String) = actualizar { it.copy(direccion = v) }
     fun onCorreoChange(v: String) = actualizar { it.copy(correo = v) }
     fun onTelefonoChange(v: String) = actualizar { it.copy(telefono = v) }
 
-    // Al salir del campo RUT se le da formato 76.123.456-0
-    fun formatearRut() {
-        val rut = _estado.value.rut
-        if (ValidadorRut.esValido(rut)) actualizar { it.copy(rut = ValidadorRut.formatear(rut)) }
-    }
 
     private fun validarCliente(e: ClienteFormUiState) = ClienteErrores(
         rut = Validaciones.rut(e.rut),

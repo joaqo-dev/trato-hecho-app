@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import androidx.compose.runtime.remember
+import cl.duoc.tratohecho.utils.RutVisualTransformation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -24,7 +26,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -76,7 +77,7 @@ fun EmpresaFormScreen(
             CampoTexto(
                 estado.rut, viewModel::onRutChange, "RUT", Icons.Filled.Badge,
                 error = estado.errores.rut, mostrarValido = estado.intentoGuardar,
-                modifier = Modifier.onFocusChanged { if (!it.isFocused) viewModel.formatearRut() }
+                transformacion = remember { RutVisualTransformation() }
             )
             CampoTexto(
                 estado.giro, viewModel::onGiroChange, "Giro", Icons.Filled.Storefront,

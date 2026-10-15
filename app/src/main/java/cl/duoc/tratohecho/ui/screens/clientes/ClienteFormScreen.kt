@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.runtime.remember
+import cl.duoc.tratohecho.utils.RutVisualTransformation
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -40,7 +42,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -90,8 +91,8 @@ fun ClienteFormScreen(
                 icono = Icons.Filled.Badge,
                 error = estado.errores.rut,
                 mostrarValido = estado.intentoGuardar,
-                ayuda = "Ej: 76.123.456-0",
-                modifier = Modifier.onFocusChanged { if (!it.isFocused) viewModel.formatearRut() }
+                ayuda = "Se completa con puntos y guion: 76.123.456-0",
+                transformacion = remember { RutVisualTransformation() }
             )
             CampoTexto(
                 valor = estado.razonSocial,

@@ -45,7 +45,8 @@ fun CampoTexto(
     soloLectura: Boolean = false,
     lineas: Int = 1,
     ayuda: String? = null,
-    imeAction: ImeAction = ImeAction.Next
+    imeAction: ImeAction = ImeAction.Next,
+    transformacion: VisualTransformation = VisualTransformation.None
 ) {
     var claveVisible by remember { mutableStateOf(false) }
 
@@ -81,7 +82,7 @@ fun CampoTexto(
         singleLine = lineas == 1,
         minLines = lineas,
         readOnly = soloLectura,
-        visualTransformation = if (esClave && !claveVisible) PasswordVisualTransformation() else VisualTransformation.None,
+        visualTransformation = if (esClave && !claveVisible) PasswordVisualTransformation() else transformacion,
         keyboardOptions = KeyboardOptions(keyboardType = tipoTeclado, imeAction = imeAction),
         shape = MaterialTheme.shapes.medium,
         colors = OutlinedTextFieldDefaults.colors(unfocusedBorderColor = MaterialTheme.colorScheme.outline),
