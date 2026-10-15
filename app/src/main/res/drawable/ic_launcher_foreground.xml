@@ -9,11 +9,11 @@
         android:fillColor="#FFFFFF"
         android:pathData="M38,30h24l10,10v38a2,2 0,0 1,-2 2h-32a2,2 0,0 1,-2 -2v-46a2,2 0,0 1,2 -2z" />
     <path
-        android:fillColor="#CDE6F2"
+        android:fillColor="#D4D4D8"
         android:pathData="M62,30l10,10h-10z" />
     <!-- Líneas de texto -->
     <path
-        android:fillColor="#1F5F7A"
+        android:fillColor="#0A0A0A"
         android:pathData="M42,46h20v3h-20zM42,53h24v3h-24zM42,60h14v3h-14z" />
     <!-- Check -->
     <path
