@@ -22,21 +22,21 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 |---|---|
 | **Login y sesión** | Ingreso con correo y clave. La empresa (tenant) se obtiene desde la API. La sesión queda guardada en DataStore. |
 | **Inicio** | Tarjeta principal con lo **ganado este mes** (se puede ocultar) y lo que requiere atención: cotizaciones por responder (y su monto), por vencer en 3 días y borradores sin enviar; accesos a *Cotizar* y *Nuevo cliente*. Debajo: buscador, la cotización en curso con su tracker, las 2 actividades más recientes, un resumen (aceptación, enviadas del mes, facturado) y el ranking de vendedores (supervisor y administrador). Se actualiza deslizando hacia abajo. |
-| **Clientes** | Lista con búsqueda, detalle, formulario con validación de RUT chileno, correo y teléfono, y contactos del cliente. Funciona sin conexión. Cada cliente tiene un vendedor a cargo, que el administrador o el supervisor pueden **reasignar** (las cotizaciones existentes siguen siendo de quien las hizo). |
+| **Clientes** | Los clientes son de la empresa y el **administrador** los registra, edita, asigna a un vendedor y da de baja (funciona sin conexión). Cada vendedor ve solo los clientes que tiene asignados y puede actualizar su correo, teléfono y personas de contacto. Validación de RUT chileno, correo y teléfono. **Nunca se borran datos**: un cliente dado de baja deja de poder cotizarse pero conserva su historial. |
 | **Catálogo** | Productos/servicios, tipos de unidad e impuestos. El administrador los crea, edita y elimina; el resto solo los consulta. |
 | **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem (lo trae cada producto del catálogo y no se modifica al cotizar), moneda CLP/USD/UF con valor de findic.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
 | **Envío por correo** | Genera el PDF de la cotización y abre la app de correo del teléfono con el PDF adjunto y el correo del cliente. Sin señal, la cotización queda **en cola** y llega una notificación cuando está lista para enviar. |
 | **Seguimiento** | Cada cotización muestra un **tracker** de su ciclo (Creada → Enviada → Respuesta → Facturada) y, en el detalle, un **historial** con fecha y hora de cada evento. Estados Borrador, Enviada, Aceptada, Rechazada, Facturada, Vencida, Anulada y Reemplazada. Nueva versión (`COT-0012 v2`), anulación y notificación cuando el cliente responde. |
 | **Contacto rápido** | Desde el detalle de la cotización o del cliente se llama (abre el marcador) o se escribe un correo al contacto con un toque. |
-| **Ajustes (administrador)** | CRUD de usuarios (rol, activo, clave) y datos de la empresa como emisor. |
+| **Ajustes (administrador)** | Usuarios (crear, editar rol y clave, dar de baja) y datos de la empresa como emisor. Los usuarios no se borran: se dan de baja. Si se da de baja a un vendedor con clientes, la app advierte y obliga a **reasignarlos** a otro vendedor antes de guardar. |
 
 ### Perfiles incluidos en esta entrega
 
 | Perfil | Permisos |
 |---|---|
-| Vendedor | Gestiona sus propios clientes (los que tiene a cargo) y sus cotizaciones. |
-| Supervisor | Ve y modifica las cotizaciones y clientes de los vendedores, reasigna clientes entre vendedores; ve indicadores y ranking. |
-| Administrador | Parametriza catálogo, impuestos, usuarios y datos de la empresa. Consulta todas las cotizaciones y reasigna clientes entre vendedores. |
+| Vendedor | Cotiza a los clientes que tiene asignados (no ve los de otros vendedores) y actualiza su información de contacto. |
+| Supervisor | Hace seguimiento y puede modificar las cotizaciones de los vendedores; consulta todos los clientes; ve indicadores y ranking. |
+| Administrador | Parametriza catálogo, impuestos, usuarios y datos de la empresa; gestiona los clientes (crear, editar, asignar vendedor, dar de baja). Consulta todas las cotizaciones. |
 
 El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluación Final Transversal.
 
