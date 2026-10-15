@@ -1,6 +1,7 @@
 package cl.duoc.tratohecho.ui.components
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
@@ -25,6 +26,12 @@ fun <T> SelectorOpciones(
                 onClick = { onSeleccionar(opcion) },
                 enabled = habilitado,
                 shape = SegmentedButtonDefaults.itemShape(index = indice, count = opciones.size),
+                colors = SegmentedButtonDefaults.colors(
+                    activeContainerColor = MaterialTheme.colorScheme.primary,
+                    activeContentColor = MaterialTheme.colorScheme.onPrimary,
+                    activeBorderColor = MaterialTheme.colorScheme.primary,
+                    inactiveBorderColor = MaterialTheme.colorScheme.outline
+                ),
                 label = { Text(textoDe(opcion)) }
             )
         }

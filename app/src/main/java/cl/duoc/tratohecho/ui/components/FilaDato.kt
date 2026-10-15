@@ -18,7 +18,7 @@ import androidx.compose.ui.unit.dp
 @Composable
 fun FilaDato(icono: ImageVector, texto: String, modifier: Modifier = Modifier) {
     Row(verticalAlignment = Alignment.CenterVertically, modifier = modifier.padding(vertical = 3.dp)) {
-        Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(18.dp))
+        Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.size(18.dp))
         Spacer(Modifier.width(10.dp))
         Text(texto, style = MaterialTheme.typography.bodyMedium)
     }

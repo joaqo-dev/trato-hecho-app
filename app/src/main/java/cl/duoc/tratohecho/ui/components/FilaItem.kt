@@ -28,15 +28,18 @@ fun FilaItem(
     acciones: @Composable () -> Unit = {}
 ) {
     Card(
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = MaterialTheme.shapes.medium,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
         modifier = modifier.fillMaxWidth()
     ) {
         Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(item.descripcion, style = MaterialTheme.typography.titleMedium)
                 Text(
-                    "${Formatos.numero(item.cantidad)} ${item.unidad} x ${Formatos.monto(item.precioUnitario, moneda)}",
+                    "${Formatos.numero(item.cantidad)} ${item.unidad} × ${Formatos.monto(item.precioUnitario, moneda)}",
                     style = MaterialTheme.typography.bodySmall
                 )
                 val descuento = when {
