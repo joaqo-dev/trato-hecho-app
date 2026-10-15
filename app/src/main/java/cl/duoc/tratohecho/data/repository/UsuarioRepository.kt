@@ -3,6 +3,7 @@ package cl.duoc.tratohecho.data.repository
 import cl.duoc.tratohecho.data.local.dao.UsuarioDao
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.remote.TratoHechoApi
+import cl.duoc.tratohecho.data.remote.dto.ReasignarClienteRequest
 import cl.duoc.tratohecho.data.remote.dto.UsuarioRequest
 import cl.duoc.tratohecho.data.remote.llamarApi
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +25,7 @@ class UsuarioRepository @Inject constructor(
     suspend fun guardar(usuario: UsuarioEntity, clave: String?): Result<Unit> =
         llamarApi { api.guardarUsuario(usuario.id, UsuarioRequest(usuario, clave)) }.map { usuarioDao.guardar(it) }
 
-    suspend fun eliminar(id: String): Result<Unit> =
-        llamarApi { api.eliminarUsuario(id) }.map { usuarioDao.eliminar(id) }
+    // Antes de dar de baja a un vendedor, sus clientes activos pasan a otro vendedor
+    suspend fun traspasarClientes(desdeId: String, haciaId: String): Result<Int> =
+        llamarApi { api.traspasarClientes(desdeId, ReasignarClienteRequest(haciaId)) }
 }

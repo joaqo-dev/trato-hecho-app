@@ -47,8 +47,8 @@ interface ClienteDao {
     @Query("DELETE FROM contactos WHERE clienteId = :clienteId")
     suspend fun eliminarContactosDe(clienteId: String)
 
-    @Query("DELETE FROM clientes WHERE id = :id")
-    suspend fun eliminar(id: String)
+    @Query("SELECT COUNT(*) FROM clientes WHERE vendedorId = :vendedorId AND activo = 1")
+    suspend fun contarActivosDe(vendedorId: String): Int
 
     @Query("UPDATE clientes SET pendienteSync = 0 WHERE id = :id")
     suspend fun marcarSincronizado(id: String)

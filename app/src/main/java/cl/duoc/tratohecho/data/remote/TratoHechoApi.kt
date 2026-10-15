@@ -39,8 +39,9 @@ interface TratoHechoApi {
     @PUT("usuarios/{id}")
     suspend fun guardarUsuario(@Path("id") id: String, @Body request: UsuarioRequest): UsuarioEntity
 
-    @DELETE("usuarios/{id}")
-    suspend fun eliminarUsuario(@Path("id") id: String)
+    // Pasa todos los clientes activos de un vendedor a otro (antes de darlo de baja)
+    @POST("usuarios/{id}/traspasar-clientes")
+    suspend fun traspasarClientes(@Path("id") id: String, @Body request: ReasignarClienteRequest): Int
 
     // Vendedores activos de la empresa (administrador y supervisor)
     @GET("vendedores")
@@ -80,9 +81,6 @@ interface TratoHechoApi {
 
     @PUT("clientes/{id}")
     suspend fun guardarCliente(@Path("id") id: String, @Body cliente: ClienteConContactos): ClienteConContactos
-
-    @DELETE("clientes/{id}")
-    suspend fun eliminarCliente(@Path("id") id: String)
 
     @POST("clientes/{id}/reasignar")
     suspend fun reasignarCliente(@Path("id") id: String, @Body request: ReasignarClienteRequest): ClienteConContactos

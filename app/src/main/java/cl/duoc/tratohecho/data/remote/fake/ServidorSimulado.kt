@@ -35,7 +35,7 @@ class ServidorSimulado @Inject constructor(
     @ApplicationContext context: Context
 ) {
     private val gson = Gson()
-    private val archivo = File(context.filesDir, "servidor_simulado_v2.json")
+    private val archivo = File(context.filesDir, "servidor_simulado_v3.json")
     private val bd: BaseDatosServidor = cargar()
 
     @Synchronized
@@ -46,7 +46,8 @@ class ServidorSimulado @Inject constructor(
         val usuario = usuarioDesdeToken(token)
         val resultado: Any? = when (ruta.firstOrNull()) {
             "empresa" -> empresa(metodo, cuerpo, usuario)
-            "usuarios" -> usuarios(metodo, ruta.getOrNull(1), cuerpo, usuario)
+            "usuarios" -> if (ruta.getOrNull(2) == "traspasar-clientes") traspasarClientes(ruta[1], cuerpo, usuario)
+            else usuarios(metodo, ruta.getOrNull(1), cuerpo, usuario)
             "vendedores" -> vendedores(usuario)
             "unidades" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.unidades, UnidadEntity::class.java) { it.id }
             "impuestos" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.impuestos, ImpuestoEntity::class.java) { it.id }
@@ -113,6 +114,13 @@ class ServidorSimulado @Inject constructor(
                     if (id == usuario.id && (!nuevo.activo || nuevo.rol != Rol.ADMINISTRADOR)) {
                         throw ErrorServidor(409, "No puedes desactivarte ni quitarte el rol de administrador")
                     }
+                    // Un vendedor que deja de serlo (baja o cambio de rol) no puede quedar con clientes a cargo
+                    val anterior = bd.usuarios[indice].usuario
+                    val dejaDeVender = anterior.rol == Rol.VENDEDOR && (!nuevo.activo || nuevo.rol != Rol.VENDEDOR)
+                    val clientesACargo = bd.clientes.count { it.cliente.vendedorId == id && it.cliente.activo }
+                    if (dejaDeVender && clientesACargo > 0) {
+                        throw ErrorServidor(409, "${anterior.nombre} tiene $clientesACargo cliente(s) a cargo. Reasígnalos antes de darlo de baja.")
+                    }
                     val clave = request.clave?.takeIf { it.isNotBlank() } ?: bd.usuarios[indice].clave
                     bd.usuarios[indice] = UsuarioServidor(nuevo, clave)
                 } else {
@@ -122,14 +130,8 @@ class ServidorSimulado @Inject constructor(
                 }
                 return nuevo
             }
-            "DELETE" -> {
-                if (id == usuario.id) throw ErrorServidor(409, "No puedes eliminar tu propio usuario")
-                val tieneDocumentos = bd.cotizaciones.any { it.cotizacion.vendedorId == id } ||
-                    bd.clientes.any { it.cliente.vendedorId == id }
-                if (tieneDocumentos) throw ErrorServidor(409, "El usuario tiene clientes o cotizaciones. Desactívalo en vez de eliminarlo.")
-                bd.usuarios.removeAll { it.usuario.id == id && it.usuario.empresaId == usuario.empresaId }
-                return null
-            }
+            // Nunca se borran usuarios: se dan de baja (activo = false) para conservar su historial
+            "DELETE" -> throw ErrorServidor(405, "Los usuarios no se eliminan; se dan de baja desactivándolos")
         }
         throw ErrorServidor(405, "Método no permitido")
     }
@@ -190,50 +192,51 @@ class ServidorSimulado @Inject constructor(
     private fun puedeVer(usuario: UsuarioEntity, empresaId: String, vendedorId: String): Boolean =
         empresaId == usuario.empresaId && (usuario.rol != Rol.VENDEDOR || vendedorId == usuario.id)
 
+    // El vendedor solo ve sus clientes activos; supervisor y administrador ven todos los de la empresa
     private fun clientes(metodo: String, id: String?, cuerpo: String?, usuario: UsuarioEntity): Any? {
         when (metodo) {
-            "GET" -> return bd.clientes.filter { puedeVer(usuario, it.cliente.empresaId, it.cliente.vendedorId) }
+            "GET" -> return bd.clientes.filter {
+                puedeVer(usuario, it.cliente.empresaId, it.cliente.vendedorId) &&
+                    (usuario.rol != Rol.VENDEDOR || it.cliente.activo)
+            }
             "PUT" -> {
-                if (usuario.rol == Rol.ADMINISTRADOR) throw ErrorServidor(403, "El administrador solo puede consultar clientes")
-                val cliente = gson.fromJson(cuerpo, ClienteConContactos::class.java)
-                if (!puedeVer(usuario, cliente.cliente.empresaId, cliente.cliente.vendedorId)) {
-                    throw ErrorServidor(403, "No tienes permiso sobre este cliente")
-                }
+                val recibido = gson.fromJson(cuerpo, ClienteConContactos::class.java)
+                if (recibido.cliente.empresaId != usuario.empresaId) throw ErrorServidor(403, "No pertenece a tu empresa")
                 val indice = bd.clientes.indexOfFirst { it.cliente.id == id }
                 val existente = bd.clientes.getOrNull(indice)
-                // Si el cliente fue reasignado mientras el vendedor estaba sin conexión, su cambio se descarta
-                if (existente != null && !puedeVer(usuario, existente.cliente.empresaId, existente.cliente.vendedorId)) {
-                    return existente
+
+                val guardado = when (usuario.rol) {
+                    // Solo el administrador crea, modifica, asigna vendedor y da de baja clientes
+                    Rol.ADMINISTRADOR -> {
+                        val vendedor = bd.usuarios.map { it.usuario }.find {
+                            it.id == recibido.cliente.vendedorId && it.empresaId == usuario.empresaId && it.rol == Rol.VENDEDOR
+                        } ?: throw ErrorServidor(400, "El cliente debe tener un vendedor asignado")
+                        recibido.copy(cliente = recibido.cliente.copy(vendedorNombre = vendedor.nombre, pendienteSync = false))
+                    }
+                    // El vendedor solo actualiza la información de contacto de sus propios clientes
+                    Rol.VENDEDOR -> {
+                        if (existente == null) throw ErrorServidor(403, "Solo el administrador puede registrar clientes")
+                        // Si se lo reasignaron mientras estaba sin conexión, su cambio se descarta
+                        if (existente.cliente.vendedorId != usuario.id) return existente
+                        existente.copy(
+                            cliente = existente.cliente.copy(correo = recibido.cliente.correo, telefono = recibido.cliente.telefono),
+                            contactos = recibido.contactos
+                        )
+                    }
+                    Rol.SUPERVISOR -> throw ErrorServidor(403, "El supervisor solo puede consultar clientes")
                 }
-                // El vendedor a cargo solo cambia con "reasignar"
-                val guardado = cliente.copy(
-                    cliente = cliente.cliente.copy(
-                        vendedorId = existente?.cliente?.vendedorId ?: cliente.cliente.vendedorId,
-                        vendedorNombre = existente?.cliente?.vendedorNombre ?: cliente.cliente.vendedorNombre,
-                        pendienteSync = false
-                    )
-                )
                 if (indice >= 0) bd.clientes[indice] = guardado else bd.clientes += guardado
                 return guardado
             }
-            "DELETE" -> {
-                val cliente = bd.clientes.find { it.cliente.id == id } ?: return null
-                if (!puedeVer(usuario, cliente.cliente.empresaId, cliente.cliente.vendedorId)) {
-                    throw ErrorServidor(403, "No tienes permiso sobre este cliente")
-                }
-                if (bd.cotizaciones.any { it.cotizacion.clienteId == id }) {
-                    throw ErrorServidor(409, "El cliente tiene cotizaciones y no se puede eliminar")
-                }
-                bd.clientes.remove(cliente)
-                return null
-            }
+            // Nunca se borran clientes: el administrador los da de baja (activo = false) y su historial se conserva
+            "DELETE" -> throw ErrorServidor(405, "Los clientes no se eliminan; se dan de baja")
         }
         throw ErrorServidor(405, "Método no permitido")
     }
 
     // Cambia el vendedor a cargo. Las cotizaciones existentes siguen siendo de quien las hizo.
     private fun reasignarCliente(id: String, cuerpo: String?, usuario: UsuarioEntity): ClienteConContactos {
-        if (usuario.rol == Rol.VENDEDOR) throw ErrorServidor(403, "Solo el administrador o el supervisor pueden reasignar clientes")
+        exigirAdministrador(usuario)
         val request = gson.fromJson(cuerpo, ReasignarClienteRequest::class.java)
         val indice = bd.clientes.indexOfFirst { it.cliente.id == id && it.cliente.empresaId == usuario.empresaId }
         if (indice < 0) throw ErrorServidor(404, "Cliente no encontrado")
@@ -245,6 +248,23 @@ class ServidorSimulado @Inject constructor(
         )
         bd.clientes[indice] = reasignado
         return reasignado
+    }
+
+    // Traspasa todos los clientes activos de un vendedor a otro (se usa antes de darlo de baja)
+    private fun traspasarClientes(id: String, cuerpo: String?, usuario: UsuarioEntity): Int {
+        exigirAdministrador(usuario)
+        val request = gson.fromJson(cuerpo, ReasignarClienteRequest::class.java)
+        if (request.vendedorId == id) throw ErrorServidor(400, "Elige otro vendedor")
+        val vendedor = vendedores(usuario).find { it.id == request.vendedorId }
+            ?: throw ErrorServidor(400, "El vendedor no existe o está desactivado")
+        var cantidad = 0
+        bd.clientes.forEachIndexed { i, c ->
+            if (c.cliente.empresaId == usuario.empresaId && c.cliente.vendedorId == id && c.cliente.activo) {
+                bd.clientes[i] = c.copy(cliente = c.cliente.copy(vendedorId = vendedor.id, vendedorNombre = vendedor.nombre))
+                cantidad++
+            }
+        }
+        return cantidad
     }
 
     // ---------------- Cotizaciones ----------------

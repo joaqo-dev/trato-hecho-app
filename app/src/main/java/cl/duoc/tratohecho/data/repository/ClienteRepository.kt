@@ -1,7 +1,6 @@
 package cl.duoc.tratohecho.data.repository
 
 import cl.duoc.tratohecho.data.local.dao.ClienteDao
-import cl.duoc.tratohecho.data.local.dao.CotizacionDao
 import cl.duoc.tratohecho.data.local.entity.ClienteConContactos
 import cl.duoc.tratohecho.data.local.entity.ClienteEntity
 import cl.duoc.tratohecho.data.local.entity.ContactoEntity
@@ -17,8 +16,7 @@ import javax.inject.Singleton
 @Singleton
 class ClienteRepository @Inject constructor(
     private val api: TratoHechoApi,
-    private val clienteDao: ClienteDao,
-    private val cotizacionDao: CotizacionDao
+    private val clienteDao: ClienteDao
 ) {
     fun observarClientes(): Flow<List<ClienteConContactos>> = clienteDao.observarClientes()
 
@@ -33,7 +31,7 @@ class ClienteRepository @Inject constructor(
         clienteDao.guardarConContactos(cliente.copy(pendienteSync = true), contactos)
     }
 
-    // Reasignar requiere conexión: el cambio de vendedor lo confirma la API
+    // Reasignar (solo administrador) requiere conexión: el cambio de vendedor lo confirma la API
     suspend fun obtenerVendedores(): Result<List<UsuarioEntity>> = llamarApi { api.obtenerVendedores() }
 
     suspend fun reasignar(clienteId: String, vendedorId: String): Result<ClienteConContactos> =
@@ -42,11 +40,13 @@ class ClienteRepository @Inject constructor(
             cliente
         }
 
-    // Eliminar requiere conexión para confirmarlo con la API
-    suspend fun eliminar(id: String): Result<Unit> {
-        if (cotizacionDao.contarPorCliente(id) > 0) {
-            return Result.failure(Exception("El cliente tiene cotizaciones y no se puede eliminar"))
-        }
-        return llamarApi { api.eliminarCliente(id) }.map { clienteDao.eliminar(id) }
+    // Baja lógica (solo administrador): el cliente no se borra, queda inactivo y su historial se conserva.
+    // Se guarda local primero, así también funciona sin conexión.
+    suspend fun cambiarEstado(id: String, activo: Boolean) {
+        val actual = clienteDao.obtenerCliente(id) ?: return
+        guardar(actual.cliente.copy(activo = activo), actual.contactos)
     }
+
+    // Clientes activos a cargo de un vendedor (para avisar antes de darlo de baja)
+    suspend fun contarActivosDe(vendedorId: String): Int = clienteDao.contarActivosDe(vendedorId)
 }

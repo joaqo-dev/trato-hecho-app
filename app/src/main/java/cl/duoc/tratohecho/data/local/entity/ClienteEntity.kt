@@ -16,6 +16,8 @@ data class ClienteEntity(
     val telefono: String,
     // Vendedor a cargo del cliente (el administrador o supervisor puede reasignarlo)
     val vendedorNombre: String = "",
+    // Baja lógica: el cliente nunca se borra; dado de baja ya no se puede cotizar, pero su historial se conserva
+    val activo: Boolean = true,
     // true = creado o editado sin conexión, falta subirlo a la API
     val pendienteSync: Boolean = false
 )
