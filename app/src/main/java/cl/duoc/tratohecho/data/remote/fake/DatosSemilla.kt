@@ -280,7 +280,7 @@ object DatosSemilla {
                 vendedorNombre = vendedor.second,
                 moneda = moneda,
                 tipoCambio = tipoCambio,
-                fechaTipoCambio = if (moneda == Moneda.CLP) null else SimpleDateFormat("dd-MM-yyyy", Locale("es", "CL")).format(Date(fechaEnvio)),
+                fechaTipoCambio = if (moneda == Moneda.CLP) null else SimpleDateFormat("dd-MM-yyyy", Locale.forLanguageTag("es-CL")).format(Date(fechaEnvio)),
                 diasValidez = 15,
                 descuentoGlobalTipo = TipoDescuento.PORCENTAJE,
                 descuentoGlobalValor = descuentoGlobal,

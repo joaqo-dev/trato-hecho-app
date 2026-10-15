@@ -39,7 +39,7 @@ class IndicadoresEconomicosRepository @Inject constructor(
             timeZone = TimeZone.getTimeZone("UTC")
         }
         val fecha = entrada.parse(fechaIso.take(19))
-        SimpleDateFormat("dd-MM-yyyy", Locale("es", "CL")).format(fecha!!)
+        SimpleDateFormat("dd-MM-yyyy", Locale.forLanguageTag("es-CL")).format(fecha!!)
     } catch (e: Exception) {
         fechaIso.take(10)
     }
