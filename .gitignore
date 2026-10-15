@@ -16,3 +16,6 @@ local.properties
 
 # Kotlin
 .kotlin/
+
+# Capturas de revisión de diseño (se regeneran)
+.impeccable/review/

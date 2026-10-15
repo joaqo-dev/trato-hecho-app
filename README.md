@@ -21,12 +21,13 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 | Módulo | Qué hace |
 |---|---|
 | **Login y sesión** | Ingreso con correo y clave. La empresa (tenant) se obtiene desde la API. La sesión queda guardada en DataStore. |
-| **Inicio (indicadores)** | Monto cotizado del mes, cotizaciones enviadas, tasa de aceptación, monto facturado, cotizaciones por estado y ranking de vendedores (supervisor y administrador). |
+| **Inicio** | Tarjeta principal con el monto cotizado del mes (se puede ocultar) y accesos a *Cotizar* y *Nuevo cliente*; buscador; la cotización en curso con su tracker; actividad reciente; resumen (aceptación, por responder, facturado), cotizaciones por estado y ranking de vendedores (supervisor y administrador). |
 | **Clientes** | Lista con búsqueda, detalle, formulario con validación de RUT chileno, correo y teléfono, y contactos del cliente. Funciona sin conexión. Cada cliente tiene un vendedor a cargo, que el administrador o el supervisor pueden **reasignar** (las cotizaciones existentes siguen siendo de quien las hizo). |
 | **Catálogo** | Productos/servicios, tipos de unidad e impuestos. El administrador los crea, edita y elimina; el resto solo los consulta. |
 | **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem, moneda CLP/USD/UF con valor de mindicador.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
 | **Envío por correo** | Genera el PDF de la cotización y abre la app de correo del teléfono con el PDF adjunto y el correo del cliente. Sin señal, la cotización queda **en cola** y llega una notificación cuando está lista para enviar. |
-| **Seguimiento** | Estados Borrador, Enviada, Aceptada, Rechazada, Facturada, Vencida, Anulada y Reemplazada. Nueva versión (`COT-0012 v2`), anulación y notificación cuando el cliente responde. |
+| **Seguimiento** | Cada cotización muestra un **tracker** de su ciclo (Creada → Enviada → Respuesta → Facturada) y, en el detalle, un **historial** con fecha y hora de cada evento. Estados Borrador, Enviada, Aceptada, Rechazada, Facturada, Vencida, Anulada y Reemplazada. Nueva versión (`COT-0012 v2`), anulación y notificación cuando el cliente responde. |
+| **Contacto rápido** | Desde el detalle de la cotización o del cliente se llama (abre el marcador) o se escribe un correo al contacto con un toque. |
 | **Ajustes (administrador)** | CRUD de usuarios (rol, activo, clave) y datos de la empresa como emisor. |
 
 ### Perfiles incluidos en esta entrega
@@ -49,9 +50,21 @@ El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluac
 | Navegación funcional | `navigation/AppNavigation.kt` (login ↔ principal) y navegación anidada en `ui/screens/principal/PrincipalScreen.kt` con barra inferior por rol. |
 | Gestión de estado | `StateFlow` + `collectAsStateWithLifecycle`, `SavedStateHandle`, eventos con `SharedFlow`. |
 | Persistencia local | **Room** (clientes, contactos, catálogo, cotizaciones e ítems) y **DataStore** (sesión y último valor del dólar/UF). |
-| Recursos nativos | **Estado de red** (`nativo/MonitorRed.kt`, ConnectivityManager), **notificaciones** con permiso en tiempo de ejecución (`nativo/NotificacionesHelper.kt`) y **compartir/correo** con FileProvider y PDF generado con PdfDocument (`nativo/CompartirHelper.kt`, `nativo/GeneradorPdf.kt`). |
-| Animaciones | `AnimatedVisibility` (errores, banners), `animateColorAsState` (estado), `animateFloatAsState` (indicadores y barras), `AnimatedContent` (total, pestañas, botón con loader), `animateContentSize`, `animateItem` en listas y transiciones entre pantallas. |
+| Recursos nativos | **Teléfono y correo** (`nativo/ContactoHelper.kt`, marcador con `ACTION_DIAL` sin pedir permiso de llamadas), **estado de red** (`nativo/MonitorRed.kt`, ConnectivityManager), **notificaciones** con permiso en tiempo de ejecución (`nativo/NotificacionesHelper.kt`) y **compartir/correo** con FileProvider y PDF generado con PdfDocument (`nativo/CompartirHelper.kt`, `nativo/GeneradorPdf.kt`). |
+| Animaciones | Línea del **tracker** que se llena al aparecer, efecto de presión (escala 0.97) en tarjetas y botones, píldora de la barra inferior que se expande con resorte, `AnimatedVisibility` (errores, banners), `animateColorAsState` (estado), `animateFloatAsState` (indicadores y barras), `AnimatedContent` (total, pestañas, botón con loader), `animateContentSize`, `animateItem` en listas y transiciones entre pantallas. |
 | Arquitectura MVVM modular | Ver estructura abajo. Inyección de dependencias con **Hilt**. |
+
+## Diseño de la interfaz
+
+La interfaz se rediseñó con las guías de *Impeccable* y de diseño de interacción de Emil Kowalski, tomando como referencia una app de seguimiento de envíos: cada cotización se sigue como un envío.
+
+- **Monocromo de alto contraste** (pensado para usarse a pleno sol) con el ámbar de la marca como único acento; colores de estado suaves para las cotizaciones.
+- **Tarjeta principal negra**, botones tipo píldora, tarjetas grises de 24 dp y **barra inferior flotante** con la sección activa en una píldora negra.
+- **Tracker del ciclo** en cada tarjeta y **línea de tiempo** en el detalle.
+- **Tema claro y oscuro.**
+- Animaciones cortas (120–280 ms) con curvas *ease-out* marcadas; nada se anima desde cero.
+
+El sistema de diseño (colores, tipografía, formas, movimiento y componentes) está documentado en [DESIGN.md](DESIGN.md) y el contexto del producto en [PRODUCT.md](PRODUCT.md).
 
 ## Arquitectura
 
@@ -68,7 +81,7 @@ cl.duoc.tratohecho/
 ├── domain/             Reglas de negocio puras: CalculadoraCotizacion, CalculadoraIndicadores
 │   └── model/          Enums y modelos (Rol, EstadoCotizacion, Moneda, Sesion…)
 ├── di/                 Módulos de Hilt (base de datos y red)
-├── nativo/             Recursos del dispositivo: red, notificaciones, PDF y compartir
+├── nativo/             Recursos del dispositivo: red, notificaciones, PDF, compartir, teléfono y correo
 ├── navigation/         Rutas (AppRoutes) y navegación raíz
 ├── ui/
 │   ├── components/     Composables reutilizables
