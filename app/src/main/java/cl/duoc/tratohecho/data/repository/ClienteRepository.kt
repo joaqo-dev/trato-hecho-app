@@ -5,7 +5,9 @@ import cl.duoc.tratohecho.data.local.dao.CotizacionDao
 import cl.duoc.tratohecho.data.local.entity.ClienteConContactos
 import cl.duoc.tratohecho.data.local.entity.ClienteEntity
 import cl.duoc.tratohecho.data.local.entity.ContactoEntity
+import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.remote.TratoHechoApi
+import cl.duoc.tratohecho.data.remote.dto.ReasignarClienteRequest
 import cl.duoc.tratohecho.data.remote.llamarApi
 import kotlinx.coroutines.flow.Flow
 import javax.inject.Inject
@@ -30,6 +32,15 @@ class ClienteRepository @Inject constructor(
     suspend fun guardar(cliente: ClienteEntity, contactos: List<ContactoEntity>) {
         clienteDao.guardarConContactos(cliente.copy(pendienteSync = true), contactos)
     }
+
+    // Reasignar requiere conexión: el cambio de vendedor lo confirma la API
+    suspend fun obtenerVendedores(): Result<List<UsuarioEntity>> = llamarApi { api.obtenerVendedores() }
+
+    suspend fun reasignar(clienteId: String, vendedorId: String): Result<ClienteConContactos> =
+        llamarApi { api.reasignarCliente(clienteId, ReasignarClienteRequest(vendedorId)) }.map { cliente ->
+            clienteDao.guardarConContactos(cliente.cliente.copy(pendienteSync = false), cliente.contactos)
+            cliente
+        }
 
     // Eliminar requiere conexión para confirmarlo con la API
     suspend fun eliminar(id: String): Result<Unit> {

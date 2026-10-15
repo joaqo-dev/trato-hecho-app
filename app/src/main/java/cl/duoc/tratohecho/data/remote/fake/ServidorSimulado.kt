@@ -10,6 +10,7 @@ import cl.duoc.tratohecho.data.local.entity.UnidadEntity
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.remote.dto.LoginRequest
 import cl.duoc.tratohecho.data.remote.dto.LoginResponse
+import cl.duoc.tratohecho.data.remote.dto.ReasignarClienteRequest
 import cl.duoc.tratohecho.data.remote.dto.UsuarioRequest
 import cl.duoc.tratohecho.domain.model.EstadoCotizacion
 import cl.duoc.tratohecho.domain.model.Rol
@@ -34,7 +35,7 @@ class ServidorSimulado @Inject constructor(
     @ApplicationContext context: Context
 ) {
     private val gson = Gson()
-    private val archivo = File(context.filesDir, "servidor_simulado.json")
+    private val archivo = File(context.filesDir, "servidor_simulado_v2.json")
     private val bd: BaseDatosServidor = cargar()
 
     @Synchronized
@@ -46,10 +47,12 @@ class ServidorSimulado @Inject constructor(
         val resultado: Any? = when (ruta.firstOrNull()) {
             "empresa" -> empresa(metodo, cuerpo, usuario)
             "usuarios" -> usuarios(metodo, ruta.getOrNull(1), cuerpo, usuario)
+            "vendedores" -> vendedores(usuario)
             "unidades" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.unidades, UnidadEntity::class.java) { it.id }
             "impuestos" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.impuestos, ImpuestoEntity::class.java) { it.id }
             "productos" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.productos, ProductoEntity::class.java) { it.id }
-            "clientes" -> clientes(metodo, ruta.getOrNull(1), cuerpo, usuario)
+            "clientes" -> if (ruta.getOrNull(2) == "reasignar") reasignarCliente(ruta[1], cuerpo, usuario)
+            else clientes(metodo, ruta.getOrNull(1), cuerpo, usuario)
             "cotizaciones" -> cotizaciones(metodo, ruta.getOrNull(1), ruta.getOrNull(2), cuerpo, usuario)
             else -> throw ErrorServidor(404, "Ruta no encontrada")
         }
@@ -131,6 +134,13 @@ class ServidorSimulado @Inject constructor(
         throw ErrorServidor(405, "Método no permitido")
     }
 
+    // Vendedores activos de la empresa (para reasignar clientes)
+    private fun vendedores(usuario: UsuarioEntity): List<UsuarioEntity> {
+        if (usuario.rol == Rol.VENDEDOR) throw ErrorServidor(403, "No tienes permiso para ver los vendedores")
+        return bd.usuarios.map { it.usuario }
+            .filter { it.empresaId == usuario.empresaId && it.rol == Rol.VENDEDOR && it.activo }
+    }
+
     // ---------------- Catálogo (unidades, impuestos y productos) ----------------
 
     private fun <T> catalogo(
@@ -189,8 +199,20 @@ class ServidorSimulado @Inject constructor(
                 if (!puedeVer(usuario, cliente.cliente.empresaId, cliente.cliente.vendedorId)) {
                     throw ErrorServidor(403, "No tienes permiso sobre este cliente")
                 }
-                val guardado = cliente.copy(cliente = cliente.cliente.copy(pendienteSync = false))
                 val indice = bd.clientes.indexOfFirst { it.cliente.id == id }
+                val existente = bd.clientes.getOrNull(indice)
+                // Si el cliente fue reasignado mientras el vendedor estaba sin conexión, su cambio se descarta
+                if (existente != null && !puedeVer(usuario, existente.cliente.empresaId, existente.cliente.vendedorId)) {
+                    return existente
+                }
+                // El vendedor a cargo solo cambia con "reasignar"
+                val guardado = cliente.copy(
+                    cliente = cliente.cliente.copy(
+                        vendedorId = existente?.cliente?.vendedorId ?: cliente.cliente.vendedorId,
+                        vendedorNombre = existente?.cliente?.vendedorNombre ?: cliente.cliente.vendedorNombre,
+                        pendienteSync = false
+                    )
+                )
                 if (indice >= 0) bd.clientes[indice] = guardado else bd.clientes += guardado
                 return guardado
             }
@@ -207,6 +229,22 @@ class ServidorSimulado @Inject constructor(
             }
         }
         throw ErrorServidor(405, "Método no permitido")
+    }
+
+    // Cambia el vendedor a cargo. Las cotizaciones existentes siguen siendo de quien las hizo.
+    private fun reasignarCliente(id: String, cuerpo: String?, usuario: UsuarioEntity): ClienteConContactos {
+        if (usuario.rol == Rol.VENDEDOR) throw ErrorServidor(403, "Solo el administrador o el supervisor pueden reasignar clientes")
+        val request = gson.fromJson(cuerpo, ReasignarClienteRequest::class.java)
+        val indice = bd.clientes.indexOfFirst { it.cliente.id == id && it.cliente.empresaId == usuario.empresaId }
+        if (indice < 0) throw ErrorServidor(404, "Cliente no encontrado")
+        val vendedor = vendedores(usuario).find { it.id == request.vendedorId }
+            ?: throw ErrorServidor(400, "El vendedor no existe o está desactivado")
+        val actual = bd.clientes[indice]
+        val reasignado = actual.copy(
+            cliente = actual.cliente.copy(vendedorId = vendedor.id, vendedorNombre = vendedor.nombre)
+        )
+        bd.clientes[indice] = reasignado
+        return reasignado
     }
 
     // ---------------- Cotizaciones ----------------

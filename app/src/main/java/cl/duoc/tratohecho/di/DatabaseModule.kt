@@ -22,7 +22,10 @@ object DatabaseModule {
     @Provides
     @Singleton
     fun provideDatabase(@ApplicationContext context: Context): AppDatabase =
-        Room.databaseBuilder(context, AppDatabase::class.java, "trato_hecho.db").build()
+        Room.databaseBuilder(context, AppDatabase::class.java, "trato_hecho.db")
+            // La base local es una copia de la API: si cambia el esquema se vuelve a descargar
+            .fallbackToDestructiveMigration(true)
+            .build()
 
     @Provides fun provideEmpresaDao(db: AppDatabase): EmpresaDao = db.empresaDao()
     @Provides fun provideUsuarioDao(db: AppDatabase): UsuarioDao = db.usuarioDao()

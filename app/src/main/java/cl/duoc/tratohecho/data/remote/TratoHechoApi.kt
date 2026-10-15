@@ -9,6 +9,7 @@ import cl.duoc.tratohecho.data.local.entity.UnidadEntity
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import cl.duoc.tratohecho.data.remote.dto.LoginRequest
 import cl.duoc.tratohecho.data.remote.dto.LoginResponse
+import cl.duoc.tratohecho.data.remote.dto.ReasignarClienteRequest
 import cl.duoc.tratohecho.data.remote.dto.UsuarioRequest
 import retrofit2.http.Body
 import retrofit2.http.DELETE
@@ -40,6 +41,10 @@ interface TratoHechoApi {
 
     @DELETE("usuarios/{id}")
     suspend fun eliminarUsuario(@Path("id") id: String)
+
+    // Vendedores activos de la empresa (administrador y supervisor)
+    @GET("vendedores")
+    suspend fun obtenerVendedores(): List<UsuarioEntity>
 
     // ---------- Catálogo ----------
     @GET("unidades")
@@ -78,6 +83,9 @@ interface TratoHechoApi {
 
     @DELETE("clientes/{id}")
     suspend fun eliminarCliente(@Path("id") id: String)
+
+    @POST("clientes/{id}/reasignar")
+    suspend fun reasignarCliente(@Path("id") id: String, @Body request: ReasignarClienteRequest): ClienteConContactos
 
     // ---------- Cotizaciones ----------
     @GET("cotizaciones")

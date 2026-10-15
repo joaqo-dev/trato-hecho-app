@@ -73,17 +73,17 @@ object DatosSemilla {
 
         bd.clientes += cliente(
             ClienteEntity("cli-andes-1", emp, "usr-andes-v1", "96.512.340-7", "Inmobiliaria Los Robles SpA",
-                "Inmobiliaria", "Los Carrera 455, Concepción", "losrobles@example.com", "+56 9 8765 4321"),
+                "Inmobiliaria", "Los Carrera 455, Concepción", "losrobles@example.com", "+56 9 8765 4321", vendedorNombre = "Camila Rojas"),
             ContactoEntity("con-andes-1", "cli-andes-1", "Andrea Silva", "Jefa de proyectos", "andrea.silva@example.com", "+56 9 1111 2222")
         )
         bd.clientes += cliente(
             ClienteEntity("cli-andes-2", emp, "usr-andes-v2", "78.345.120-4", "Comercial Biobío Ltda.",
-                "Comercio al por menor", "Barros Arana 980, Concepción", "biobio@example.com", "+56 41 222 3344"),
+                "Comercio al por menor", "Barros Arana 980, Concepción", "biobio@example.com", "+56 41 222 3344", vendedorNombre = "Diego Muñoz"),
             ContactoEntity("con-andes-2", "cli-andes-2", "Marcelo Torres", "Administrador", "marcelo.torres@example.com", "+56 9 3333 4444")
         )
         bd.clientes += cliente(
             ClienteEntity("cli-andes-3", emp, "usr-andes-v1", "12.345.678-5", "Juan Pérez González",
-                "Particular", "Pasaje Los Aromos 12, Talcahuano", "juan.perez@example.com", "+56 9 5555 6666")
+                "Particular", "Pasaje Los Aromos 12, Talcahuano", "juan.perez@example.com", "+56 9 5555 6666", vendedorNombre = "Camila Rojas")
         )
 
         val camila = "usr-andes-v1" to "Camila Rojas"
@@ -166,21 +166,21 @@ object DatosSemilla {
 
         bd.clientes += cliente(
             ClienteEntity("cli-clima-1", emp, "usr-clima-v1", "79.111.222-2", "Agrícola Santa Rosa SpA",
-                "Agricultura", "Camino a Florida km 8, Concepción", "santarosa@example.com", "+56 9 7777 8888"),
+                "Agricultura", "Camino a Florida km 8, Concepción", "santarosa@example.com", "+56 9 7777 8888", vendedorNombre = "Tomás Navarro"),
             ContactoEntity("con-clima-1", "cli-clima-1", "Rodrigo Espinoza", "Gerente de operaciones", "rodrigo.espinoza@example.com", "+56 9 1212 3434")
         )
         bd.clientes += cliente(
             ClienteEntity("cli-clima-2", emp, "usr-clima-v2", "76.987.654-5", "Hotel Pastor del Sur SpA",
-                "Hotelería", "Caupolicán 510, Concepción", "reservas.pastor@example.com", "+56 41 244 5566"),
+                "Hotelería", "Caupolicán 510, Concepción", "reservas.pastor@example.com", "+56 41 244 5566", vendedorNombre = "Valentina Castro"),
             ContactoEntity("con-clima-2", "cli-clima-2", "Sofía Riquelme", "Jefa de mantención", "sofia.riquelme@example.com", "+56 9 5656 7878")
         )
         bd.clientes += cliente(
             ClienteEntity("cli-clima-3", emp, "usr-clima-v1", "77.222.333-1", "Colegio San Andrés Ltda.",
-                "Educación", "Lincoyán 1020, Concepción", "administracion.sanandres@example.com", "+56 41 255 6677")
+                "Educación", "Lincoyán 1020, Concepción", "administracion.sanandres@example.com", "+56 41 255 6677", vendedorNombre = "Tomás Navarro")
         )
         bd.clientes += cliente(
             ClienteEntity("cli-clima-4", emp, "usr-clima-v2", "15.333.444-7", "María Soto Paredes",
-                "Particular", "Los Olmos 77, San Pedro de la Paz", "maria.soto@example.com", "+56 9 9090 1010")
+                "Particular", "Los Olmos 77, San Pedro de la Paz", "maria.soto@example.com", "+56 9 9090 1010", vendedorNombre = "Valentina Castro")
         )
 
         val tomas = "usr-clima-v1" to "Tomás Navarro"

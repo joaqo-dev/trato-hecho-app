@@ -14,6 +14,8 @@ data class ClienteEntity(
     val direccion: String,
     val correo: String,
     val telefono: String,
+    // Vendedor a cargo del cliente (el administrador o supervisor puede reasignarlo)
+    val vendedorNombre: String = "",
     // true = creado o editado sin conexión, falta subirlo a la API
     val pendienteSync: Boolean = false
 )

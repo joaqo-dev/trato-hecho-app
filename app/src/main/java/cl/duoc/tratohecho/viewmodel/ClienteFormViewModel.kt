@@ -62,6 +62,7 @@ data class ClienteFormUiState(
     val cargando: Boolean = false,
     val empresaId: String = "",
     val vendedorId: String = "",
+    val vendedorNombre: String = "",
     val rut: String = "",
     val razonSocial: String = "",
     val giro: String = "",
@@ -98,12 +99,16 @@ class ClienteFormViewModel @Inject constructor(
             _estado.value = if (existente != null) {
                 val c = existente.cliente
                 ClienteFormUiState(
-                    id = c.id, esNuevo = false, empresaId = c.empresaId, vendedorId = c.vendedorId,
+                    id = c.id, esNuevo = false, empresaId = c.empresaId, vendedorId = c.vendedorId, vendedorNombre = c.vendedorNombre,
                     rut = c.rut, razonSocial = c.razonSocial, giro = c.giro, direccion = c.direccion,
                     correo = c.correo, telefono = c.telefono, contactos = existente.contactos
                 )
             } else {
-                ClienteFormUiState(empresaId = sesion?.empresaId ?: "", vendedorId = sesion?.usuarioId ?: "")
+                ClienteFormUiState(
+                    empresaId = sesion?.empresaId ?: "",
+                    vendedorId = sesion?.usuarioId ?: "",
+                    vendedorNombre = sesion?.nombre ?: ""
+                )
             }
         }
     }
@@ -159,7 +164,8 @@ class ClienteFormViewModel @Inject constructor(
                 giro = actual.giro.trim(),
                 direccion = actual.direccion.trim(),
                 correo = actual.correo.trim(),
-                telefono = actual.telefono.trim()
+                telefono = actual.telefono.trim(),
+                vendedorNombre = actual.vendedorNombre
             )
             clienteRepository.guardar(cliente, actual.contactos)
             gestorSincronizacion.sincronizarEnSegundoPlano()
