@@ -24,7 +24,7 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 | **Inicio** | Tarjeta principal con el monto cotizado del mes (se puede ocultar) y accesos a *Cotizar* y *Nuevo cliente*; buscador; la cotización en curso con su tracker; actividad reciente; resumen (aceptación, por responder, facturado), cotizaciones por estado y ranking de vendedores (supervisor y administrador). |
 | **Clientes** | Lista con búsqueda, detalle, formulario con validación de RUT chileno, correo y teléfono, y contactos del cliente. Funciona sin conexión. Cada cliente tiene un vendedor a cargo, que el administrador o el supervisor pueden **reasignar** (las cotizaciones existentes siguen siendo de quien las hizo). |
 | **Catálogo** | Productos/servicios, tipos de unidad e impuestos. El administrador los crea, edita y elimina; el resto solo los consulta. |
-| **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem, moneda CLP/USD/UF con valor de mindicador.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
+| **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem, moneda CLP/USD/UF con valor de findic.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
 | **Envío por correo** | Genera el PDF de la cotización y abre la app de correo del teléfono con el PDF adjunto y el correo del cliente. Sin señal, la cotización queda **en cola** y llega una notificación cuando está lista para enviar. |
 | **Seguimiento** | Cada cotización muestra un **tracker** de su ciclo (Creada → Enviada → Respuesta → Facturada) y, en el detalle, un **historial** con fecha y hora de cada evento. Estados Borrador, Enviada, Aceptada, Rechazada, Facturada, Vencida, Anulada y Reemplazada. Nueva versión (`COT-0012 v2`), anulación y notificación cuando el cliente responde. |
 | **Contacto rápido** | Desde el detalle de la cotización o del cliente se llama (abre el marcador) o se escribe un correo al contacto con un toque. |
@@ -74,7 +74,7 @@ Patrón **MVVM** con repositorios, en un solo módulo `app` organizado por paque
 cl.duoc.tratohecho/
 ├── data/
 │   ├── local/          Room (entity/, dao/, AppDatabase) y DataStore (sesión, indicadores)
-│   ├── remote/         Retrofit: TratoHechoApi, MindicadorApi, DTOs
+│   ├── remote/         Retrofit: TratoHechoApi, IndicadoresApi, DTOs
 │   │   └── fake/       API simulada: FakeApiInterceptor, ServidorSimulado, DatosSemilla
 │   ├── repository/     Un repositorio por módulo (local primero, luego API)
 │   └── sync/           GestorSincronizacion (sube pendientes al volver la señal)
@@ -104,7 +104,7 @@ dentro de la app**: Retrofit hace las peticiones normalmente y `FakeApiIntercept
   rechazan solas **2 minutos** después (también existe el botón *Simular respuesta del cliente* en el detalle).
 - Si el teléfono no tiene conexión, la petición falla igual que con una API real.
 
-El valor del **dólar y la UF** sí se obtiene de la API pública real **https://mindicador.cl**.
+El valor del **dólar y la UF** sí se obtiene de la API pública real **https://findic.cl** (sin clave). Cada valor obtenido se guarda: sin conexión se puede seguir cotizando en USD o UF con el último valor descargado, y la app lo advierte.
 
 ### Funcionamiento sin conexión
 

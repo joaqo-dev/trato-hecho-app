@@ -95,7 +95,8 @@ data class CotizacionFormUiState(
     val errores: CotizacionErrores = CotizacionErrores(),
     val intentoGuardar: Boolean = false,
     val guardando: Boolean = false,
-    val dialogoItem: ItemFormState? = null
+    val dialogoItem: ItemFormState? = null,
+    val avisoMoneda: String? = null      // aviso cuando se usa el último valor guardado del dólar/UF
 )
 
 sealed class EventoFormCotizacion {
@@ -205,6 +206,8 @@ class CotizacionFormViewModel @Inject constructor(
 
     fun actualizarTipoCambio() = cargarTipoCambio(_estado.value.moneda)
 
+    fun cerrarAvisoMoneda() = _estado.update { it.copy(avisoMoneda = null) }
+
     private fun cargarTipoCambio(moneda: Moneda) {
         viewModelScope.launch {
             _estado.update { it.copy(cargandoTipoCambio = true) }
@@ -222,6 +225,11 @@ class CotizacionFormViewModel @Inject constructor(
                             )
                         }
                         e.copy(
+                            avisoMoneda = if (indicador.desdeCache) {
+                                "No hay internet, pero puedes continuar. Se usará el último valor de ${moneda.etiqueta.lowercase()} " +
+                                    "que obtuvo la app: ${Formatos.monto(indicador.valor)} (${indicador.fecha}). " +
+                                    "Cuando vuelva la señal puedes actualizarlo con el botón de recargar junto al valor."
+                            } else null,
                             moneda = moneda,
                             tipoCambio = indicador.valor,
                             fechaTipoCambio = indicador.fecha.ifBlank { null },

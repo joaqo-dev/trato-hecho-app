@@ -54,6 +54,6 @@ class FakeApiInterceptor(
     }
 
     companion object {
-        private const val DEMORA_MS = 300L
+        private const val DEMORA_MS = 500L
     }
 }

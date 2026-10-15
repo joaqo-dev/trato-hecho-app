@@ -2,7 +2,7 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- La API simulada y mindicador.cl necesitan internet -->
+    <!-- La API simulada y findic.cl (dólar y UF) necesitan internet -->
     <uses-permission android:name="android.permission.INTERNET" />
     <!-- Recurso nativo: estado de la red (modo sin conexión y sincronización) -->
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />

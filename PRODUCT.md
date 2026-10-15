@@ -23,7 +23,7 @@ Cotizar en terreno sin depender de la señal: borradores y clientes se guardan e
 - Uso en terreno, a pleno sol o en interiores de clientes; conectividad intermitente.
 - El cliente final acepta o rechaza en una página pública que ya existe (fuera de la app); la app solo consulta el resultado.
 - Envío por la app de correo del teléfono con el PDF adjunto.
-- Valores de USD y UF desde mindicador.cl (con último valor guardado si no hay señal).
+- Valores de USD y UF desde findic.cl (con último valor guardado si no hay señal).
 - Multi-tenant: cada empresa ve solo su información.
 
 ## Capabilities and Constraints

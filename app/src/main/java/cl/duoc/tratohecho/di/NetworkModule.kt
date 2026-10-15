@@ -2,7 +2,7 @@ package cl.duoc.tratohecho.di
 
 import cl.duoc.tratohecho.data.local.SesionDataStore
 import cl.duoc.tratohecho.data.remote.AuthInterceptor
-import cl.duoc.tratohecho.data.remote.MindicadorApi
+import cl.duoc.tratohecho.data.remote.IndicadoresApi
 import cl.duoc.tratohecho.data.remote.TratoHechoApi
 import cl.duoc.tratohecho.data.remote.fake.FakeApiInterceptor
 import cl.duoc.tratohecho.data.remote.fake.ServidorSimulado
@@ -23,7 +23,7 @@ object NetworkModule {
 
     // URL de la API de Trato Hecho. Las peticiones las responde FakeApiInterceptor (API simulada).
     private const val URL_TRATO_HECHO = "https://api.tratohecho.cl/v1/"
-    private const val URL_MINDICADOR = "https://mindicador.cl/"
+    private const val URL_INDICADORES = "https://findic.cl/"
 
     @Provides
     @Singleton
@@ -46,16 +46,16 @@ object NetworkModule {
 
     @Provides
     @Singleton
-    fun provideMindicadorApi(): MindicadorApi {
+    fun provideIndicadoresApi(): IndicadoresApi {
         val cliente = OkHttpClient.Builder()
             .connectTimeout(8, TimeUnit.SECONDS)
             .readTimeout(8, TimeUnit.SECONDS)
             .build()
         return Retrofit.Builder()
-            .baseUrl(URL_MINDICADOR)
+            .baseUrl(URL_INDICADORES)
             .client(cliente)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
-            .create(MindicadorApi::class.java)
+            .create(IndicadoresApi::class.java)
     }
 }

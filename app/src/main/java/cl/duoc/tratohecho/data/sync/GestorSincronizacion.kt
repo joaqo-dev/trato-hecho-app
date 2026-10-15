@@ -2,6 +2,7 @@ package cl.duoc.tratohecho.data.sync
 
 import cl.duoc.tratohecho.data.local.SesionDataStore
 import cl.duoc.tratohecho.data.remote.llamarApi
+import cl.duoc.tratohecho.data.repository.IndicadoresEconomicosRepository
 import cl.duoc.tratohecho.data.repository.ResultadoSincronizacion
 import cl.duoc.tratohecho.data.repository.SincronizacionRepository
 import cl.duoc.tratohecho.nativo.MonitorRed
@@ -26,7 +27,8 @@ class GestorSincronizacion @Inject constructor(
     private val repository: SincronizacionRepository,
     private val monitorRed: MonitorRed,
     private val sesionDataStore: SesionDataStore,
-    private val notificaciones: NotificacionesHelper
+    private val notificaciones: NotificacionesHelper,
+    private val indicadoresRepository: IndicadoresEconomicosRepository
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val mutex = Mutex()
@@ -54,6 +56,8 @@ class GestorSincronizacion @Inject constructor(
             }
             _sincronizando.value = true
             val resultado = llamarApi { repository.sincronizar(sesion) }
+            // También se guarda el dólar y la UF del día, para usarlos si después se pierde la señal
+            indicadoresRepository.actualizar()
             _sincronizando.value = false
 
             resultado.onSuccess { r ->
