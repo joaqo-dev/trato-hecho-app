@@ -56,7 +56,7 @@ El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluac
 
 ## Diseño de la interfaz
 
-La interfaz se rediseñó con las guías de *Impeccable* y de diseño de interacción de Emil Kowalski, tomando como referencia una app de seguimiento de envíos: cada cotización se sigue como un envío.
+La interfaz toma como referencia una app de seguimiento de envíos: cada cotización se sigue como un envío.
 
 - **Monocromo de alto contraste** (pensado para usarse a pleno sol) con el ámbar de la marca como único acento; colores de estado suaves para las cotizaciones.
 - **Tarjeta principal negra**, botones tipo píldora, tarjetas grises de 24 dp y **barra inferior flotante** con la sección activa en una píldora negra.
@@ -64,7 +64,7 @@ La interfaz se rediseñó con las guías de *Impeccable* y de diseño de interac
 - **Tema claro y oscuro.**
 - Animaciones cortas (120–280 ms) con curvas *ease-out* marcadas; nada se anima desde cero.
 
-El sistema de diseño (colores, tipografía, formas, movimiento y componentes) está documentado en [DESIGN.md](DESIGN.md) y el contexto del producto en [PRODUCT.md](PRODUCT.md).
+Los colores, tipografía y formas están en `ui/theme/` (`Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`) y las curvas y duraciones de animación en `Movimiento.kt`.
 
 ## Arquitectura
 
