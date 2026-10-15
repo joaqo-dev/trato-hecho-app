@@ -23,11 +23,22 @@ class CotizacionesViewModel @Inject constructor(
     private val _filtro = MutableStateFlow<EstadoCotizacion?>(null)
     val filtro: StateFlow<EstadoCotizacion?> = _filtro.asStateFlow()
 
+    private val _busqueda = MutableStateFlow("")
+    val busqueda: StateFlow<String> = _busqueda.asStateFlow()
+
     val cotizaciones: StateFlow<List<CotizacionEntity>?> =
-        combine(cotizacionRepository.observarCotizaciones(), _filtro) { lista, filtro ->
-            if (filtro == null) lista.filter { it.estado != EstadoCotizacion.REEMPLAZADA }
+        combine(cotizacionRepository.observarCotizaciones(), _filtro, _busqueda) { lista, filtro, texto ->
+            val porEstado = if (filtro == null) lista.filter { it.estado != EstadoCotizacion.REEMPLAZADA }
             else lista.filter { it.estado == filtro }
+            if (texto.isBlank()) porEstado
+            else porEstado.filter {
+                it.numeroCompleto.contains(texto, ignoreCase = true) || it.clienteNombre.contains(texto, ignoreCase = true)
+            }
         }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
+
+    fun onBusquedaChange(texto: String) {
+        _busqueda.value = texto
+    }
 
     fun onFiltroChange(estado: EstadoCotizacion?) {
         _filtro.value = if (_filtro.value == estado) null else estado

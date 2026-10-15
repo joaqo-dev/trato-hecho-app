@@ -1,9 +1,29 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
 import android.content.ActivityNotFoundException
+import androidx.compose.foundation.background
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.material.icons.automirrored.filled.ReceiptLong
+import androidx.compose.material.icons.filled.Description
+import androidx.compose.material.icons.filled.History
+import cl.duoc.tratohecho.domain.HistorialCotizacion
+import cl.duoc.tratohecho.nativo.ContactoHelper
+import cl.duoc.tratohecho.ui.components.BloqueDetalle
+import cl.duoc.tratohecho.ui.components.BotonCarga
+import cl.duoc.tratohecho.ui.components.BotonSecundario
+import cl.duoc.tratohecho.ui.components.Etiqueta
+import cl.duoc.tratohecho.ui.components.FilaDetalle
+import cl.duoc.tratohecho.ui.components.LineaTiempo
+import cl.duoc.tratohecho.ui.components.TarjetaContacto
+import cl.duoc.tratohecho.ui.components.TrackerCotizacion
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -95,7 +115,8 @@ fun CotizacionDetalleScreen(
     }
 
     Scaffold(
-        topBar = { BarraConVolver(detalle?.datos?.cotizacion?.numeroCompleto ?: "Cotización", onVolver) }
+        containerColor = MaterialTheme.colorScheme.background,
+        topBar = { BarraConVolver("Detalle", onVolver) }
     ) { padding ->
         val actual = detalle
         if (actual == null) {
@@ -103,6 +124,7 @@ fun CotizacionDetalleScreen(
             return@Scaffold
         }
         val cot = actual.datos.cotizacion
+        val cliente = actual.cliente?.cliente
         val contacto = actual.cliente?.contactos?.find { it.id == cot.contactoId }
         // El administrador solo consulta. Vendedor y supervisor pueden modificar.
         val puedeModificar = sesion.rol != Rol.ADMINISTRADOR
@@ -110,47 +132,90 @@ fun CotizacionDetalleScreen(
         Column(Modifier.fillMaxSize().padding(padding)) {
             AnimatedVisibility(visible = procesando) { LinearProgressIndicator(Modifier.fillMaxWidth()) }
             Column(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(16.dp)
+                    .padding(horizontal = 20.dp)
+                    .padding(top = 8.dp, bottom = 32.dp)
             ) {
-                // ---------- Encabezado ----------
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
-                ) {
-                    Column(Modifier.padding(16.dp).fillMaxWidth()) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text(cot.clienteNombre, style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-                            ChipEstado(cot.estado, enCola = cot.envioPendiente)
-                        }
-                        if (contacto != null) FilaDato(Icons.Filled.Person, "${contacto.nombre} · ${contacto.correo}")
-                        else FilaDato(Icons.Filled.Email, actual.cliente?.cliente?.correo ?: "-")
-                        FilaDato(Icons.Filled.Business, "Vendedor: ${cot.vendedorNombre}")
-                        FilaDato(Icons.Filled.CalendarMonth, "Creada: ${Formatos.fecha(cot.fechaCreacion)} · Enviada: ${Formatos.fecha(cot.fechaEnvio)}")
-                        FilaDato(Icons.Filled.EventBusy, "Validez: ${cot.diasValidez} días · Vence: ${Formatos.fecha(cot.fechaVencimiento)}")
-                        if (cot.moneda != Moneda.CLP) {
-                            FilaDato(
-                                Icons.Filled.CurrencyExchange,
-                                "1 ${cot.moneda.name} = ${Formatos.monto(cot.tipoCambio)} (${cot.fechaTipoCambio ?: "-"})"
-                            )
-                        }
+                // ---------- Encabezado tipo "tracking" ----------
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Box(
+                        contentAlignment = Alignment.Center,
+                        modifier = Modifier
+                            .size(52.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                    ) {
+                        Icon(Icons.Filled.Description, contentDescription = null)
+                    }
+                    Spacer(Modifier.width(14.dp))
+                    Column(Modifier.weight(1f)) {
+                        Etiqueta("N° de cotización")
+                        Text(cot.numeroCompleto, style = MaterialTheme.typography.titleLarge)
+                    }
+                    ChipEstado(cot.estado, enCola = cot.envioPendiente)
+                }
+                Spacer(Modifier.height(24.dp))
+                TrackerCotizacion(cot)
+                Spacer(Modifier.height(24.dp))
+
+                // ---------- Acción principal según el estado ----------
+                when {
+                    puedeModificar && cot.estado == EstadoCotizacion.BORRADOR && !cot.envioPendiente ->
+                        BotonCarga("Enviar al cliente", viewModel::enviar, procesando, icono = Icons.AutoMirrored.Filled.Send)
+                    cot.estado == EstadoCotizacion.BORRADOR -> Unit
+                    cot.estado != EstadoCotizacion.ANULADA ->
+                        BotonCarga(
+                            if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) "Reenviar por correo" else "Compartir PDF",
+                            viewModel::abrirCorreo,
+                            cargando = false,
+                            icono = Icons.Filled.PictureAsPdf
+                        )
+                }
+
+                // ---------- Datos ----------
+                Spacer(Modifier.height(8.dp))
+                BloqueDetalle("Datos de la cotización") {
+                    FilaDetalle("Cliente", cot.clienteNombre)
+                    if (cliente != null) FilaDetalle("RUT", cliente.rut)
+                    FilaDetalle("Vendedor", cot.vendedorNombre)
+                    FilaDetalle(
+                        "Moneda",
+                        if (cot.moneda == Moneda.CLP) "Peso chileno (CLP)"
+                        else "${cot.moneda.name} · ${Formatos.monto(cot.tipoCambio)} (${cot.fechaTipoCambio ?: "-"})"
+                    )
+                    FilaDetalle("Validez", "${cot.diasValidez} días")
+                    if (cot.fechaVencimiento != null) FilaDetalle("Vence", Formatos.fecha(cot.fechaVencimiento))
+                    if (cot.pendienteSync) {
+                        FilaDetalle("Sincronización", "Pendiente", colorValor = MaterialTheme.colorScheme.secondary)
                     }
                 }
 
-                MensajeDeEstado(
-                    estado = cot.estado,
-                    enCola = cot.envioPendiente,
-                    fechaRespuesta = cot.fechaRespuesta
-                )
+                // ---------- Contacto rápido ----------
+                if (cliente != null) {
+                    TituloSeccion("Contacto del cliente")
+                    val nombre = contacto?.nombre ?: cliente.razonSocial
+                    val correo = contacto?.correo ?: cliente.correo
+                    val telefono = contacto?.telefono ?: cliente.telefono
+                    TarjetaContacto(
+                        nombre = nombre,
+                        descripcion = contacto?.cargo?.let { "$it · ${cliente.razonSocial}" } ?: "Cliente",
+                        onCorreo = {
+                            if (!ContactoHelper.escribirCorreo(context, correo)) mostrarMensaje("No hay una app de correo instalada")
+                        },
+                        onLlamar = {
+                            if (!ContactoHelper.llamar(context, telefono)) mostrarMensaje("Este teléfono no puede realizar llamadas")
+                        }
+                    )
+                }
 
                 // ---------- Ítems y totales ----------
                 TituloSeccion("Ítems (${actual.datos.items.size})")
-                actual.datos.items.sortedBy { it.orden }.forEach { item ->
-                    FilaItem(item, cot.moneda)
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    actual.datos.items.sortedBy { it.orden }.forEach { item -> FilaItem(item, cot.moneda) }
                 }
+                Spacer(Modifier.height(10.dp))
                 TarjetaTotales(actual.totales, cot.moneda, cot.tipoCambio)
 
                 if (cot.notas.isNotBlank()) {
@@ -158,39 +223,45 @@ fun CotizacionDetalleScreen(
                     Text(cot.notas, style = MaterialTheme.typography.bodyMedium)
                 }
 
-                cot.cotizacionOrigenId?.let { origenId ->
-                    TextButton(onClick = { onAbrirCotizacion(origenId) }) {
-                        Icon(Icons.Filled.ContentCopy, contentDescription = null)
-                        Text("  Ver versión anterior")
-                    }
-                }
+                // ---------- Historial ----------
+                TituloSeccion("Historial")
+                LineaTiempo(
+                    eventos = HistorialCotizacion.eventos(cot),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(MaterialTheme.shapes.large)
+                        .background(MaterialTheme.colorScheme.surfaceContainer)
+                        .padding(start = 18.dp, end = 18.dp, top = 18.dp)
+                )
 
-                // ---------- Acciones según estado y rol ----------
-                TituloSeccion("Acciones")
-                if (puedeModificar && cot.estado == EstadoCotizacion.BORRADOR) {
-                    if (!cot.envioPendiente) {
-                        Boton("Enviar al cliente", Icons.AutoMirrored.Filled.Send, principal = true, habilitado = !procesando) { viewModel.enviar() }
+                // ---------- Otras acciones ----------
+                val acciones = buildList {
+                    if (puedeModificar && cot.estado == EstadoCotizacion.BORRADOR) add("editar")
+                    if (puedeModificar && cot.estado.permiteNuevaVersion) add("version")
+                    if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) add("simular")
+                    if (puedeModificar && cot.estado.permiteAnular) add("anular")
+                    if (cot.cotizacionOrigenId != null) add("anterior")
+                }
+                if (acciones.isNotEmpty()) {
+                    TituloSeccion("Más acciones")
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        if ("editar" in acciones) BotonSecundario("Editar borrador", { onEditar(cot.id) }, icono = Icons.Filled.Edit)
+                        if ("version" in acciones) BotonSecundario("Crear nueva versión", { confirmarVersion = true }, icono = Icons.Filled.ContentCopy)
+                        // Solo para la demo: la aceptación real ocurre en la página pública de Trato Hecho
+                        if ("simular" in acciones) BotonSecundario(
+                            "Simular respuesta del cliente (demo)", viewModel::simularRespuesta,
+                            icono = Icons.Filled.Science, habilitado = !procesando
+                        )
+                        if ("anterior" in acciones) BotonSecundario(
+                            "Ver versión anterior", { onAbrirCotizacion(cot.cotizacionOrigenId!!) }, icono = Icons.Filled.History
+                        )
+                        if ("anular" in acciones) BotonSecundario(
+                            if (cot.estado == EstadoCotizacion.BORRADOR) "Descartar borrador" else "Anular cotización",
+                            { confirmarAnular = true },
+                            icono = Icons.Filled.Block,
+                            destructivo = true
+                        )
                     }
-                    Boton("Editar borrador", Icons.Filled.Edit) { onEditar(cot.id) }
-                }
-                if (cot.estado != EstadoCotizacion.BORRADOR && cot.estado != EstadoCotizacion.ANULADA) {
-                    Boton(
-                        if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) "Reenviar por correo" else "Compartir PDF",
-                        Icons.Filled.PictureAsPdf
-                    ) { viewModel.abrirCorreo() }
-                }
-                if (puedeModificar && cot.estado.permiteNuevaVersion) {
-                    Boton("Crear nueva versión", Icons.Filled.ContentCopy) { confirmarVersion = true }
-                }
-                if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) {
-                    // Solo para la demo: la aceptación real ocurre en la página pública de Trato Hecho
-                    Boton("Simular respuesta del cliente (demo)", Icons.Filled.Science, habilitado = !procesando) { viewModel.simularRespuesta() }
-                }
-                if (puedeModificar && cot.estado.permiteAnular) {
-                    Boton(
-                        if (cot.estado == EstadoCotizacion.BORRADOR) "Descartar borrador" else "Anular cotización",
-                        Icons.Filled.Block
-                    ) { confirmarAnular = true }
                 }
             }
         }
@@ -219,49 +290,5 @@ fun CotizacionDetalleScreen(
             },
             onCancelar = { confirmarVersion = false }
         )
-    }
-}
-
-@Composable
-private fun MensajeDeEstado(estado: EstadoCotizacion, enCola: Boolean, fechaRespuesta: Long?) {
-    val (icono, texto) = when {
-        enCola -> Icons.Filled.HourglassTop to "En cola de envío: se enviará automáticamente al recuperar la señal."
-        estado == EstadoCotizacion.ENVIADA -> Icons.Filled.HourglassTop to "Esperando la respuesta del cliente en la página pública."
-        estado == EstadoCotizacion.ACEPTADA -> Icons.Filled.Person to "El cliente aceptó la cotización el ${Formatos.fecha(fechaRespuesta)}."
-        estado == EstadoCotizacion.RECHAZADA -> Icons.Filled.Person to "El cliente rechazó la cotización el ${Formatos.fecha(fechaRespuesta)}."
-        estado == EstadoCotizacion.VENCIDA -> Icons.Filled.EventBusy to "Venció sin respuesta. Puedes crear una nueva versión."
-        estado == EstadoCotizacion.REEMPLAZADA -> Icons.Filled.ContentCopy to "Esta versión fue reemplazada por una más nueva."
-        else -> return
-    }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer)) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(12.dp).fillMaxWidth()) {
-            Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
-            Text(
-                "  $texto",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSecondaryContainer
-            )
-        }
-    }
-}
-
-@Composable
-private fun Boton(
-    texto: String,
-    icono: ImageVector,
-    principal: Boolean = false,
-    habilitado: Boolean = true,
-    onClick: () -> Unit
-) {
-    if (principal) {
-        Button(onClick = onClick, enabled = habilitado, modifier = Modifier.fillMaxWidth()) {
-            Icon(icono, contentDescription = null)
-            Text("  $texto")
-        }
-    } else {
-        OutlinedButton(onClick = onClick, enabled = habilitado, modifier = Modifier.fillMaxWidth()) {
-            Icon(icono, contentDescription = null)
-            Text("  $texto")
-        }
     }
 }

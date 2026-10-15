@@ -1,5 +1,14 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import androidx.compose.material3.HorizontalDivider
+import cl.duoc.tratohecho.ui.theme.DURACION_CORTA
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.animation.togetherWith
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.material3.Surface
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.foundation.layout.Arrangement
@@ -104,7 +113,20 @@ fun CotizacionFormScreen(
         else -> "Editar ${estado.base?.numeroCompleto ?: ""}"
     }
 
-    Scaffold(topBar = { BarraConVolver(titulo, onVolver) }) { padding ->
+    Scaffold(
+        topBar = { BarraConVolver(titulo, onVolver) },
+        // La acción principal queda siempre a mano, con el total al día
+        bottomBar = {
+            if (!estado.cargando) {
+                BarraEnvio(
+                    total = Formatos.monto(estado.totales.total, estado.moneda),
+                    guardando = estado.guardando,
+                    onEnviar = viewModel::guardarYEnviar,
+                    onBorrador = viewModel::guardarBorrador
+                )
+            }
+        }
+    ) { padding ->
         if (estado.cargando) {
             Box(Modifier.fillMaxSize().padding(padding), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
             return@Scaffold
@@ -120,7 +142,6 @@ fun CotizacionFormScreen(
                 .padding(16.dp)
         ) {
             // ---------- Cliente ----------
-            TituloSeccion("Cliente")
             CampoSelector(
                 etiqueta = "Cliente",
                 icono = Icons.Filled.Business,
@@ -194,6 +215,13 @@ fun CotizacionFormScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp),
                 modifier = Modifier.animateContentSize().padding(vertical = 6.dp)
             ) {
+                if (estado.items.isEmpty() && estado.errores.items == null) {
+                    Text(
+                        "Aún no agregas ítems. Elige productos del catálogo con \"Agregar ítem\".",
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 estado.errores.items?.let { error ->
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Filled.Error, contentDescription = null, tint = MaterialTheme.colorScheme.error, modifier = Modifier.size(16.dp))
@@ -250,22 +278,7 @@ fun CotizacionFormScreen(
 
             TarjetaTotales(estado.totales, estado.moneda, estado.tipoCambio, Modifier.padding(vertical = 8.dp))
 
-            BotonCarga(
-                texto = "Guardar y enviar",
-                onClick = viewModel::guardarYEnviar,
-                cargando = estado.guardando,
-                icono = Icons.AutoMirrored.Filled.Send
-            )
-            OutlinedButton(
-                onClick = viewModel::guardarBorrador,
-                enabled = !estado.guardando,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 8.dp)
-            ) {
-                Icon(Icons.Filled.Save, contentDescription = null)
-                Text("  Guardar borrador")
-            }
+
         }
     }
 
@@ -353,4 +366,45 @@ private fun DialogoItem(
         confirmButton = { TextButton(onClick = onGuardar) { Text(if (estado.esNuevo) "Agregar" else "Guardar") } },
         dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
     )
+}
+
+// Barra inferior fija: total en vivo + "Guardar y enviar" (principal) + "Guardar borrador" (secundaria)
+@Composable
+private fun BarraEnvio(total: String, guardando: Boolean, onEnviar: () -> Unit, onBorrador: () -> Unit) {
+    // Fondo un tono más gris y una línea arriba para separarla del formulario
+    Surface(color = MaterialTheme.colorScheme.surfaceContainerLow) {
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        Column(
+            Modifier
+                .navigationBarsPadding()
+                .imePadding()
+                .padding(horizontal = 20.dp, vertical = 12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text("Total", style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.weight(1f))
+                AnimatedContent(
+                    targetState = total,
+                    transitionSpec = { fadeIn(tween(DURACION_CORTA)) togetherWith fadeOut(tween(120)) },
+                    label = "total_barra"
+                ) { texto ->
+                    Text(texto, style = MaterialTheme.typography.titleLarge.copy(fontFeatureSettings = "tnum"))
+                }
+            }
+            Spacer(Modifier.height(10.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                TextButton(onClick = onBorrador, enabled = !guardando) {
+                    Text("Guardar borrador", color = MaterialTheme.colorScheme.onSurface)
+                }
+                Spacer(Modifier.width(8.dp))
+                BotonCarga(
+                    texto = "Guardar y enviar",
+                    onClick = onEnviar,
+                    cargando = guardando,
+                    icono = Icons.AutoMirrored.Filled.Send,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+        }
+    }
 }
