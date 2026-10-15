@@ -32,6 +32,14 @@ object Formatos {
     fun fechaHora(millis: Long?): String =
         if (millis == null) "-" else SimpleDateFormat("dd-MM-yyyy HH:mm", localeChile).format(Date(millis))
 
+    // "12 oct"
+    fun fechaCorta(millis: Long?): String =
+        if (millis == null) "-" else SimpleDateFormat("d MMM", localeChile).format(Date(millis)).replace(".", "")
+
+    // "10:30"
+    fun hora(millis: Long?): String =
+        if (millis == null) "" else SimpleDateFormat("HH:mm", localeChile).format(Date(millis))
+
     fun porcentaje(valor: Double): String = "${(valor * 100).toInt()}%"
 
     // Para mostrar un Double en un campo de texto sin ".0" sobrante
