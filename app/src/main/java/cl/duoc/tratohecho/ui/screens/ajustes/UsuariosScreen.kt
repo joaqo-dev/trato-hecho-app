@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import cl.duoc.tratohecho.ui.components.BotonFlotante
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -59,11 +60,7 @@ fun UsuariosScreen(
     Scaffold(
         topBar = { BarraConVolver("Usuarios", onVolver) },
         floatingActionButton = {
-            ExtendedFloatingActionButton(
-                onClick = onNuevo,
-                icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
-                text = { Text("Nuevo usuario") }
-            )
+            BotonFlotante("Nuevo usuario", Icons.Filled.PersonAdd, onNuevo)
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
@@ -71,14 +68,17 @@ fun UsuariosScreen(
                 LinearProgressIndicator(Modifier.fillMaxWidth())
             }
             LazyColumn(
-                contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
+                contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = 96.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(usuarios, key = { it.id }) { usuario ->
                     Card(
                         onClick = { onEditar(usuario.id) },
-                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+                        shape = MaterialTheme.shapes.large,
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                            contentColor = MaterialTheme.colorScheme.onSurface
+                        ),
                         modifier = Modifier
                             .fillMaxWidth()
                             .animateItem()

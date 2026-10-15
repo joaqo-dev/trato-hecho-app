@@ -1,5 +1,8 @@
 package cl.duoc.tratohecho.ui.screens.catalogo
 
+import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
+import cl.duoc.tratohecho.ui.theme.Pildora
+import cl.duoc.tratohecho.ui.components.BarraSeccion
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -75,16 +78,22 @@ fun CatalogoScreen(
     LaunchedEffect(Unit) { viewModel.mensajes.collect { mostrarMensaje(it) } }
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text("Catálogo") }) },
+        topBar = { BarraSeccion("Catálogo") },
         floatingActionButton = {
             if (esAdmin) {
-                FloatingActionButton(onClick = {
+                FloatingActionButton(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary,
+                    shape = Pildora,
+                    modifier = Modifier.padding(bottom = ESPACIO_BARRA_NAVEGACION),
+                    onClick = {
                     when (pestana) {
                         0 -> onNuevoProducto()
                         1 -> onNuevaUnidad()
                         else -> onNuevoImpuesto()
                     }
-                }) { Icon(Icons.Filled.Add, contentDescription = "Agregar") }
+                    }
+                ) { Icon(Icons.Filled.Add, contentDescription = "Agregar") }
             }
         }
     ) { padding ->
@@ -99,13 +108,13 @@ fun CatalogoScreen(
                     "Solo lectura: el administrador mantiene el catálogo",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    modifier = Modifier.padding(start = 16.dp, top = 8.dp)
+                    modifier = Modifier.padding(start = 20.dp, top = 10.dp)
                 )
             }
             // Transición animada al cambiar de pestaña
             AnimatedContent(targetState = pestana, label = "pestana_catalogo") { seleccion ->
                 LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, top = 12.dp, bottom = 88.dp),
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, top = 12.dp, bottom = ESPACIO_BARRA_NAVEGACION + 80.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
@@ -196,14 +205,16 @@ private fun FilaCatalogo(
     Card(
         onClick = onClick,
         enabled = esAdmin,
+        shape = MaterialTheme.shapes.large,
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surface,
-            disabledContainerColor = MaterialTheme.colorScheme.surface
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            disabledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface,
+            disabledContentColor = MaterialTheme.colorScheme.onSurface
         ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
         modifier = modifier.fillMaxWidth()
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp, end = 4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 18.dp, top = 14.dp, bottom = 14.dp, end = 6.dp)) {
             Column(Modifier.weight(1f)) {
                 Text(titulo, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurface)
                 Text(subtitulo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -213,7 +224,6 @@ private fun FilaCatalogo(
                     valor,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.padding(horizontal = 8.dp)
                 )
             }

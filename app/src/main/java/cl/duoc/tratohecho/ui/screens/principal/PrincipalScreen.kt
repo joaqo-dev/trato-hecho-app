@@ -14,6 +14,15 @@ import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.animation.core.tween
+import androidx.compose.ui.unit.dp
+import cl.duoc.tratohecho.ui.components.BarraNavegacionFlotante
+import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
+import cl.duoc.tratohecho.ui.theme.DURACION_CORTA
+import cl.duoc.tratohecho.ui.theme.DURACION_MEDIA
+import cl.duoc.tratohecho.ui.theme.EaseOutFuerte
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.consumeWindowInsets
@@ -21,10 +30,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.NavigationBar
-import androidx.compose.material3.NavigationBarItem
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -127,60 +133,53 @@ fun PrincipalScreen(
 
     Scaffold(
         contentWindowInsets = WindowInsets(0),
-        snackbarHost = { SnackbarHost(snackbar) },
+        containerColor = MaterialTheme.colorScheme.background,
+        // El aviso (snackbar) aparece sobre la barra flotante, no detrás de ella
+        snackbarHost = {
+            SnackbarHost(snackbar, Modifier.padding(bottom = if (mostrarBarra) ESPACIO_BARRA_NAVEGACION else 0.dp))
+        },
         topBar = {
             Column(
                 Modifier
-                    .background(MaterialTheme.colorScheme.surface)
+                    .background(MaterialTheme.colorScheme.background)
                     .statusBarsPadding()
             ) {
                 BannerSinConexion(sinConexion = !hayConexion, pendientes = pendientes)
                 BannerSincronizando(visible = sincronizando && hayConexion)
             }
         },
-        bottomBar = {
-            AnimatedVisibility(
-                visible = mostrarBarra,
-                enter = slideInVertically { it },
-                exit = slideOutVertically { it }
-            ) {
-                NavigationBar {
-                    secciones.forEach { seccion ->
-                        NavigationBarItem(
-                            selected = destinoActual?.hierarchy?.any { it.route == seccion.ruta } == true,
-                            onClick = {
-                                navController.navigate(seccion.ruta) {
-                                    popUpTo(navController.graph.findStartDestination().id) { saveState = true }
-                                    launchSingleTop = true
-                                    restoreState = true
-                                }
-                            },
-                            icon = { Icon(seccion.icono, contentDescription = null) },
-                            label = { Text(seccion.titulo) }
-                        )
-                    }
-                }
-            }
-        }
     ) { padding ->
+        Box(Modifier.fillMaxSize()) {
         NavHost(
             navController = navController,
             startDestination = AppRoutes.INICIO,
-            enterTransition = { fadeIn() + slideInHorizontally { it / 6 } },
-            exitTransition = { fadeOut() },
-            popEnterTransition = { fadeIn() },
-            popExitTransition = { fadeOut() + slideOutHorizontally { it / 6 } },
+            enterTransition = { fadeIn(tween(DURACION_MEDIA)) + slideInHorizontally(tween(DURACION_MEDIA, easing = EaseOutFuerte)) { it / 8 } },
+            exitTransition = { fadeOut(tween(DURACION_CORTA)) },
+            popEnterTransition = { fadeIn(tween(DURACION_MEDIA)) },
+            popExitTransition = { fadeOut(tween(DURACION_CORTA)) + slideOutHorizontally(tween(DURACION_CORTA)) { it / 8 } },
             modifier = Modifier
                 .padding(padding)
                 .consumeWindowInsets(padding)
         ) {
             // ---------- Secciones principales ----------
             composable(AppRoutes.INICIO) {
+                // Las secciones de la barra se abren igual que desde la barra (sin apilar pantallas)
+                val irASeccion: (String) -> Unit = { ruta ->
+                    navController.navigate(ruta) {
+                        popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                }
                 InicioScreen(
                     sesion = sesionActual,
                     onSincronizar = viewModel::sincronizar,
                     onCerrarSesion = viewModel::cerrarSesion,
-                    onAbrirCotizaciones = { navController.navigate(AppRoutes.COTIZACIONES) }
+                    onNuevaCotizacion = { navController.navigate(AppRoutes.cotizacionForm()) },
+                    onNuevoCliente = { navController.navigate(AppRoutes.clienteForm()) },
+                    onAbrirCotizacion = { navController.navigate(AppRoutes.cotizacionDetalle(it)) },
+                    onAbrirCotizaciones = { irASeccion(AppRoutes.COTIZACIONES) },
+                    onAbrirClientes = { irASeccion(AppRoutes.CLIENTES) }
                 )
             }
             composable(AppRoutes.COTIZACIONES) {
@@ -312,6 +311,36 @@ fun PrincipalScreen(
             composable(AppRoutes.EMPRESA_FORM) {
                 EmpresaFormScreen(mostrarMensaje = mostrarMensaje, onVolver = { navController.popBackStack() })
             }
+        }
+
+        // Barra flotante superpuesta: el contenido pasa por debajo de la píldora.
+        // Se oculta en detalles y formularios para dar todo el espacio al contenido.
+        AnimatedVisibility(
+            visible = mostrarBarra,
+            enter = slideInVertically(tween(DURACION_MEDIA, easing = EaseOutFuerte)) { it } + fadeIn(tween(DURACION_CORTA)),
+            exit = slideOutVertically(tween(DURACION_CORTA)) { it } + fadeOut(tween(DURACION_CORTA)),
+            modifier = Modifier.align(Alignment.BottomCenter)
+        ) {
+            Box(
+                contentAlignment = Alignment.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .navigationBarsPadding()
+                    .padding(top = 6.dp, bottom = 12.dp)
+            ) {
+                BarraNavegacionFlotante(
+                    destinos = secciones,
+                    rutaActual = secciones.firstOrNull { s -> destinoActual?.hierarchy?.any { it.route == s.ruta } == true }?.ruta,
+                    onSeleccionar = { seccion ->
+                        navController.navigate(seccion.ruta) {
+                            popUpTo(navController.graph.findStartDestination().id) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
+                    }
+                )
+            }
+        }
         }
     }
 }

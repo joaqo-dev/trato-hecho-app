@@ -104,7 +104,7 @@ private fun LoginContenido(
                 contentAlignment = Alignment.Center,
                 modifier = Modifier
                     .size(88.dp)
-                    .clip(RoundedCornerShape(24.dp))
+                    .clip(RoundedCornerShape(28.dp))
                     .background(MaterialTheme.colorScheme.primary)
             ) {
                 Icon(
@@ -115,7 +115,7 @@ private fun LoginContenido(
                 )
             }
             Spacer(Modifier.height(16.dp))
-            Text("Trato Hecho", style = MaterialTheme.typography.headlineMedium, color = MaterialTheme.colorScheme.primary)
+            Text("Trato Hecho", style = MaterialTheme.typography.headlineMedium)
             Text(
                 "Cotiza en terreno, cierra el mismo día",
                 style = MaterialTheme.typography.bodyMedium,
@@ -128,16 +128,16 @@ private fun LoginContenido(
                 visibleState = visible,
                 enter = fadeIn(tween(500)) + slideInVertically(tween(500)) { it / 4 }
             ) {
+                // Sin tarjeta envolvente: el formulario respira sobre el fondo, como la referencia
                 Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.background),
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(4.dp),
-                        modifier = Modifier.padding(20.dp)
+                        modifier = Modifier.padding(vertical = 8.dp)
                     ) {
-                        Text("Iniciar sesión", style = MaterialTheme.typography.titleLarge)
+                        Text("Iniciar sesión", style = MaterialTheme.typography.headlineSmall)
                         Spacer(Modifier.height(8.dp))
                         CampoTexto(
                             valor = estado.correo,

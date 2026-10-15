@@ -1,5 +1,14 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.ui.platform.LocalContext
+import cl.duoc.tratohecho.nativo.ContactoHelper
+import cl.duoc.tratohecho.ui.components.TarjetaContacto
+import cl.duoc.tratohecho.ui.components.FilaDetalle
+import cl.duoc.tratohecho.ui.components.BloqueDetalle
+import cl.duoc.tratohecho.ui.components.Avatar
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.selection.selectable
@@ -70,6 +79,7 @@ fun ClienteDetalleScreen(
     val cliente by viewModel.cliente.collectAsStateWithLifecycle()
     val cotizaciones by viewModel.cotizaciones.collectAsStateWithLifecycle()
     val reasignar by viewModel.reasignar.collectAsStateWithLifecycle()
+    val context = LocalContext.current
     var confirmarEliminar by remember { mutableStateOf(false) }
     // El administrador solo consulta; vendedor y supervisor pueden modificar
     val puedeEditar = sesion.rol != Rol.ADMINISTRADOR
@@ -91,7 +101,7 @@ fun ClienteDetalleScreen(
     Scaffold(
         topBar = {
             BarraConVolver(
-                titulo = cliente?.cliente?.razonSocial ?: "Cliente",
+                titulo = "Cliente",
                 onVolver = onVolver,
                 acciones = {
                     if (puedeReasignar && cliente != null) {
@@ -122,49 +132,47 @@ fun ClienteDetalleScreen(
                 .fillMaxSize()
                 .padding(padding)
                 .verticalScroll(rememberScrollState())
-                .padding(16.dp)
+                .padding(horizontal = 20.dp, vertical = 8.dp)
         ) {
-            Card(
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(Modifier.padding(16.dp)) {
-                    FilaDato(Icons.Filled.Badge, datos.cliente.rut)
-                    FilaDato(Icons.Filled.Business, datos.cliente.giro)
-                    FilaDato(Icons.Filled.LocationOn, datos.cliente.direccion)
-                    FilaDato(Icons.Filled.Email, datos.cliente.correo)
-                    FilaDato(Icons.Filled.Phone, datos.cliente.telefono)
-                    if (datos.cliente.vendedorNombre.isNotBlank()) {
-                        FilaDato(Icons.Filled.SupportAgent, "Vendedor a cargo: ${datos.cliente.vendedorNombre}")
-                    }
-                    if (datos.cliente.pendienteSync) {
-                        Text(
-                            "Pendiente de sincronizar",
-                            style = MaterialTheme.typography.labelMedium,
-                            color = MaterialTheme.colorScheme.secondary,
-                            modifier = Modifier.padding(top = 6.dp)
-                        )
-                    }
+            // Encabezado: avatar + nombre + vendedor a cargo
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(datos.cliente.razonSocial, Modifier.size(56.dp))
+                Spacer(Modifier.width(14.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(datos.cliente.razonSocial, style = MaterialTheme.typography.titleLarge)
+                    Text(
+                        datos.cliente.giro,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+            }
+            BloqueDetalle("Datos del cliente") {
+                FilaDetalle("RUT", datos.cliente.rut)
+                FilaDetalle("Dirección", datos.cliente.direccion)
+                FilaDetalle("Correo", datos.cliente.correo)
+                FilaDetalle("Teléfono", datos.cliente.telefono)
+                if (datos.cliente.vendedorNombre.isNotBlank()) FilaDetalle("Vendedor a cargo", datos.cliente.vendedorNombre)
+                if (datos.cliente.pendienteSync) {
+                    FilaDetalle("Sincronización", "Pendiente", colorValor = MaterialTheme.colorScheme.secondary)
                 }
             }
 
             TituloSeccion("Contactos")
-            if (datos.contactos.isEmpty()) {
-                Text("Sin contactos registrados", style = MaterialTheme.typography.bodyMedium)
-            }
+            // La empresa misma también se puede contactar directo
+            TarjetaContacto(
+                nombre = datos.cliente.razonSocial,
+                descripcion = "Teléfono y correo de la empresa",
+                onCorreo = { if (!ContactoHelper.escribirCorreo(context, datos.cliente.correo)) mostrarMensaje("No hay una app de correo instalada") },
+                onLlamar = { if (!ContactoHelper.llamar(context, datos.cliente.telefono)) mostrarMensaje("Este teléfono no puede realizar llamadas") }
+            )
             datos.contactos.forEach { contacto ->
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    Column(Modifier.padding(14.dp)) {
-                        FilaDato(Icons.Filled.Person, contacto.nombre)
-                        FilaDato(Icons.Filled.Work, contacto.cargo)
-                        HorizontalDivider(Modifier.padding(vertical = 4.dp))
-                        FilaDato(Icons.Filled.Email, contacto.correo)
-                        FilaDato(Icons.Filled.Phone, contacto.telefono)
-                    }
-                }
+                TarjetaContacto(
+                    nombre = contacto.nombre,
+                    descripcion = contacto.cargo,
+                    onCorreo = { if (!ContactoHelper.escribirCorreo(context, contacto.correo)) mostrarMensaje("No hay una app de correo instalada") },
+                    onLlamar = { if (!ContactoHelper.llamar(context, contacto.telefono)) mostrarMensaje("Este teléfono no puede realizar llamadas") }
+                )
             }
 
             TituloSeccion("Cotizaciones (${cotizaciones.size})")

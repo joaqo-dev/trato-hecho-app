@@ -1,5 +1,12 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import cl.duoc.tratohecho.ui.theme.TratoTheme
+import cl.duoc.tratohecho.ui.components.efectoPresion
+import cl.duoc.tratohecho.ui.components.Avatar
+import cl.duoc.tratohecho.ui.components.BotonSecundario
+import cl.duoc.tratohecho.ui.components.BarraSeccion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
@@ -45,28 +52,32 @@ fun AjustesScreen(
 ) {
     var confirmarSalida by remember { mutableStateOf(false) }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Ajustes") }) }) { padding ->
+    Scaffold(topBar = { BarraSeccion("Ajustes") }) { padding ->
         Column(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .padding(16.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 8.dp, bottom = ESPACIO_BARRA_NAVEGACION)
         ) {
-            Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+            // Tarjeta del perfil en negro, como la tarjeta principal del inicio
+            Card(
+                shape = MaterialTheme.shapes.extraLarge,
+                colors = CardDefaults.cardColors(containerColor = TratoTheme.colores.hero, contentColor = TratoTheme.colores.enHero)
+            ) {
                 ListItem(
-                    headlineContent = { Text(sesion.nombre) },
-                    supportingContent = { Text("${sesion.correo}\n${sesion.rol.etiqueta} · ${sesion.empresaNombre}") },
-                    leadingContent = { Icon(Icons.Filled.AccountCircle, contentDescription = null) },
-                    colors = ListItemDefaults.colors(containerColor = Color.Transparent)
+                    headlineContent = { Text(sesion.nombre, style = MaterialTheme.typography.titleMedium) },
+                    supportingContent = {
+                        Text("${sesion.correo}\n${sesion.rol.etiqueta} · ${sesion.empresaNombre}", color = TratoTheme.colores.enHeroSuave)
+                    },
+                    leadingContent = { Avatar(sesion.nombre) },
+                    colors = ListItemDefaults.colors(containerColor = Color.Transparent, headlineColor = TratoTheme.colores.enHero),
+                    modifier = Modifier.padding(vertical = 6.dp)
                 )
             }
             OpcionAjuste(Icons.Filled.Business, "Datos de la empresa", "RUT, razón social y datos que aparecen en el PDF", onEmpresa)
             OpcionAjuste(Icons.Filled.Group, "Usuarios", "Crear, editar y desactivar usuarios de la empresa", onUsuarios)
-            OutlinedButton(onClick = { confirmarSalida = true }, modifier = Modifier.fillMaxWidth()) {
-                Icon(Icons.AutoMirrored.Filled.Logout, contentDescription = null)
-                Text("  Cerrar sesión")
-            }
+            BotonSecundario("Cerrar sesión", { confirmarSalida = true }, icono = Icons.AutoMirrored.Filled.Logout, destructivo = true)
         }
     }
 
@@ -86,15 +97,18 @@ fun AjustesScreen(
 
 @Composable
 private fun OpcionAjuste(icono: ImageVector, titulo: String, descripcion: String, onClick: () -> Unit) {
+    val interaccion = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        interactionSource = interaccion,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+        modifier = Modifier.efectoPresion(interaccion)
     ) {
         ListItem(
             headlineContent = { Text(titulo) },
             supportingContent = { Text(descripcion) },
-            leadingContent = { Icon(icono, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+            leadingContent = { Icon(icono, contentDescription = null) },
             trailingContent = { Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null) },
             colors = ListItemDefaults.colors(containerColor = Color.Transparent)
         )

@@ -1,5 +1,14 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.runtime.remember
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import cl.duoc.tratohecho.ui.components.efectoPresion
+import cl.duoc.tratohecho.ui.components.Avatar
+import cl.duoc.tratohecho.ui.components.CampoBusqueda
+import cl.duoc.tratohecho.ui.components.BotonFlotante
+import cl.duoc.tratohecho.ui.components.BarraSeccion
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -58,28 +67,20 @@ fun ClientesScreen(
     val busqueda by viewModel.busqueda.collectAsStateWithLifecycle()
 
     Scaffold(
-        topBar = { TopAppBar(title = { Text(if (sesion.rol == Rol.VENDEDOR) "Mis clientes" else "Clientes") }) },
+        topBar = { BarraSeccion(if (sesion.rol == Rol.VENDEDOR) "Mis clientes" else "Clientes") },
         floatingActionButton = {
             // Solo el vendedor registra clientes nuevos
             if (sesion.rol == Rol.VENDEDOR) {
-                ExtendedFloatingActionButton(
-                    onClick = onNuevo,
-                    icon = { Icon(Icons.Filled.PersonAdd, contentDescription = null) },
-                    text = { Text("Nuevo cliente") }
-                )
+                BotonFlotante("Nuevo cliente", Icons.Filled.PersonAdd, onNuevo, Modifier.padding(bottom = ESPACIO_BARRA_NAVEGACION))
             }
         }
     ) { padding ->
         Column(Modifier.fillMaxSize().padding(padding)) {
-            OutlinedTextField(
-                value = busqueda,
-                onValueChange = viewModel::onBusquedaChange,
-                placeholder = { Text("Buscar por nombre o RUT") },
-                leadingIcon = { Icon(Icons.Filled.Search, contentDescription = null) },
-                singleLine = true,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp)
+            CampoBusqueda(
+                valor = busqueda,
+                onValorChange = viewModel::onBusquedaChange,
+                placeholder = "Buscar por nombre o RUT",
+                modifier = Modifier.padding(start = 20.dp, end = 20.dp, bottom = 12.dp)
             )
             val lista = clientes
             when {
@@ -90,8 +91,8 @@ fun ClientesScreen(
                     mensaje = if (busqueda.isBlank()) "Registra tu primer cliente, incluso sin conexión." else "Prueba con otro nombre o RUT."
                 )
                 else -> LazyColumn(
-                    contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 88.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                    contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = ESPACIO_BARRA_NAVEGACION + 80.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
                 ) {
                     items(lista, key = { it.cliente.id }) { cliente ->
                         TarjetaCliente(
@@ -114,38 +115,37 @@ private fun TarjetaCliente(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val interaccion = remember { MutableInteractionSource() }
     Card(
         onClick = onClick,
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
-        modifier = modifier.fillMaxWidth()
+        interactionSource = interaccion,
+        shape = MaterialTheme.shapes.large,
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceContainer,
+            contentColor = MaterialTheme.colorScheme.onSurface
+        ),
+        modifier = modifier
+            .fillMaxWidth()
+            .efectoPresion(interaccion)
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(14.dp)) {
-            Box(
-                contentAlignment = Alignment.Center,
-                modifier = Modifier
-                    .size(40.dp)
-                    .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primaryContainer)
-            ) {
-                Text(
-                    cliente.cliente.razonSocial.take(1).uppercase(),
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onPrimaryContainer
-                )
-            }
-            Spacer(Modifier.width(12.dp))
+        Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(16.dp)) {
+            Avatar(cliente.cliente.razonSocial)
+            Spacer(Modifier.width(14.dp))
             Column(Modifier.weight(1f)) {
                 Text(cliente.cliente.razonSocial, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(
                     if (mostrarVendedor) "${cliente.cliente.rut} · ${cliente.cliente.vendedorNombre}"
                     else "${cliente.cliente.rut} · ${cliente.contactos.size} contacto(s)",
                     style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
             if (cliente.cliente.pendienteSync) {
                 Icon(Icons.Filled.CloudUpload, contentDescription = "Pendiente de sincronizar", tint = MaterialTheme.colorScheme.secondary)
+            } else {
+                Icon(Icons.AutoMirrored.Filled.KeyboardArrowRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
     }
