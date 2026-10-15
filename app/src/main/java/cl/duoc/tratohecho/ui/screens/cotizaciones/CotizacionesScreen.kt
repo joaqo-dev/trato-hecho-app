@@ -1,5 +1,8 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import androidx.compose.material.icons.filled.CloudOff
+import cl.duoc.tratohecho.ui.components.CargandoDatos
+import cl.duoc.tratohecho.ui.components.ContenidoActualizable
 import cl.duoc.tratohecho.ui.components.ESPACIO_BARRA_NAVEGACION
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -44,6 +47,9 @@ fun CotizacionesScreen(
     sesion: Sesion,
     onAbrir: (String) -> Unit,
     onNueva: () -> Unit,
+    actualizando: Boolean,
+    sinConexion: Boolean,
+    onActualizar: () -> Unit,
     viewModel: CotizacionesViewModel = hiltViewModel()
 ) {
     val cotizaciones by viewModel.cotizaciones.collectAsStateWithLifecycle()
@@ -88,28 +94,41 @@ fun CotizacionesScreen(
                 }
             }
             val lista = cotizaciones
-            when {
-                lista == null -> Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { CircularProgressIndicator() }
-                lista.isEmpty() -> EstadoVacio(
-                    icono = Icons.Filled.Description,
-                    titulo = "No hay cotizaciones",
-                    mensaje = when {
-                        busqueda.isNotBlank() -> "Ninguna coincide con \"$busqueda\"."
-                        filtro != null -> "No hay cotizaciones en estado ${filtro?.etiqueta}."
-                        else -> "Crea una cotización y envíala en la misma visita."
-                    }
-                )
-                else -> LazyColumn(
+            // Deslizar hacia abajo vuelve a pedir los datos a la API
+            ContenidoActualizable(actualizando, onActualizar, Modifier.fillMaxSize()) {
+                LazyColumn(
                     contentPadding = PaddingValues(start = 20.dp, end = 20.dp, bottom = ESPACIO_BARRA_NAVEGACION + 80.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxSize()
                 ) {
-                    items(lista, key = { it.id }) { cot ->
-                        TarjetaCotizacion(
-                            cotizacion = cot,
-                            onClick = { onAbrir(cot.id) },
-                            mostrarVendedor = sesion.rol != Rol.VENDEDOR,
-                            modifier = Modifier.animateItem()
-                        )
+                    when {
+                        lista == null || (lista.isEmpty() && actualizando) -> item { CargandoDatos("Cargando cotizaciones…") }
+                        lista.isEmpty() && sinConexion && busqueda.isBlank() && filtro == null -> item {
+                            EstadoVacio(
+                                icono = Icons.Filled.CloudOff,
+                                titulo = "Sin conexión",
+                                mensaje = "No hay cotizaciones guardadas en el teléfono. Conéctate y desliza hacia abajo para descargarlas."
+                            )
+                        }
+                        lista.isEmpty() -> item {
+                            EstadoVacio(
+                                icono = Icons.Filled.Description,
+                                titulo = "No hay cotizaciones",
+                                mensaje = when {
+                                    busqueda.isNotBlank() -> "Ninguna coincide con \"$busqueda\"."
+                                    filtro != null -> "No hay cotizaciones en estado ${filtro?.etiqueta}."
+                                    else -> "Crea una cotización y envíala en la misma visita."
+                                }
+                            )
+                        }
+                        else -> items(lista, key = { it.id }) { cot ->
+                            TarjetaCotizacion(
+                                cotizacion = cot,
+                                onClick = { onAbrir(cot.id) },
+                                mostrarVendedor = sesion.rol != Rol.VENDEDOR,
+                                modifier = Modifier.animateItem()
+                            )
+                        }
                     }
                 }
             }

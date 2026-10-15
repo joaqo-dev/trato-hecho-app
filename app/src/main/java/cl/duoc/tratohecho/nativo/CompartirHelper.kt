@@ -39,4 +39,15 @@ class CompartirHelper @Inject constructor(
             Intent.createChooser(intent, "Enviar cotización por correo")
         }
     }
+
+    // Abre el PDF en el visor del sistema (desde ahí también se puede imprimir o compartir por otros medios)
+    fun crearIntentVer(archivo: File): Intent {
+        val uri: Uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", archivo)
+        val intent = Intent(Intent.ACTION_VIEW).apply {
+            setDataAndType(uri, "application/pdf")
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            clipData = ClipData.newRawUri("", uri)
+        }
+        return Intent.createChooser(intent, "Abrir cotización con")
+    }
 }

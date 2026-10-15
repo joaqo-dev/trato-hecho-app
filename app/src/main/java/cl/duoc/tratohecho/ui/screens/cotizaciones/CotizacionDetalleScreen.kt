@@ -104,6 +104,11 @@ fun CotizacionDetalleScreen(
             when (evento) {
                 is EventoDetalleCotizacion.Mensaje -> mostrarMensaje(evento.texto)
                 is EventoDetalleCotizacion.IrAFormulario -> onEditar(evento.id)
+                is EventoDetalleCotizacion.AbrirVisor -> try {
+                    context.startActivity(evento.intent)
+                } catch (e: ActivityNotFoundException) {
+                    mostrarMensaje("No hay una app para ver PDF instalada")
+                }
                 is EventoDetalleCotizacion.AbrirCorreo -> try {
                     context.startActivity(evento.intent)
                 } catch (e: ActivityNotFoundException) {
@@ -167,11 +172,16 @@ fun CotizacionDetalleScreen(
                     cot.estado == EstadoCotizacion.BORRADOR -> Unit
                     cot.estado != EstadoCotizacion.ANULADA ->
                         BotonCarga(
-                            if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) "Reenviar por correo" else "Compartir PDF",
+                            if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) "Reenviar por correo" else "Enviar por correo",
                             viewModel::abrirCorreo,
                             cargando = false,
-                            icono = Icons.Filled.PictureAsPdf
+                            icono = Icons.AutoMirrored.Filled.Send
                         )
+                }
+                // Cotizaciones emitidas: ver el documento en el visor del sistema
+                if (cot.estado != EstadoCotizacion.BORRADOR) {
+                    Spacer(Modifier.height(10.dp))
+                    BotonSecundario("Ver PDF", viewModel::verPdf, icono = Icons.Filled.PictureAsPdf)
                 }
 
                 // ---------- Datos ----------

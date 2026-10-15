@@ -1,5 +1,9 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.foundation.BorderStroke
+import cl.duoc.tratohecho.ui.theme.Pildora
+import cl.duoc.tratohecho.ui.components.SeccionDescuento
 import androidx.compose.material3.HorizontalDivider
 import cl.duoc.tratohecho.ui.theme.DURACION_CORTA
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -147,7 +151,8 @@ fun CotizacionFormScreen(
                 icono = Icons.Filled.Business,
                 opciones = clientes,
                 seleccionado = clienteSeleccionado,
-                textoDe = { "${it.cliente.razonSocial} (${it.cliente.rut})" },
+                textoDe = { it.cliente.razonSocial },
+                textoSecundarioDe = { "${it.cliente.rut} · ${it.contactos.size} contacto(s)" },
                 onSeleccionar = viewModel::onClienteChange,
                 error = estado.errores.cliente
             )
@@ -157,7 +162,8 @@ fun CotizacionFormScreen(
                     icono = Icons.Filled.Person,
                     opciones = clienteSeleccionado?.contactos ?: emptyList(),
                     seleccionado = clienteSeleccionado?.contactos?.find { it.id == estado.contactoId },
-                    textoDe = { "${it.nombre} · ${it.correo}" },
+                    textoDe = { it.nombre },
+                    textoSecundarioDe = { "${it.cargo} · ${it.correo}" },
                     onSeleccionar = { viewModel.onContactoChange(it.id) }
                 )
             }
@@ -175,7 +181,7 @@ fun CotizacionFormScreen(
                 if (estado.cargandoTipoCambio) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
-                        Text("  Consultando mindicador.cl…", style = MaterialTheme.typography.bodySmall)
+                        Text("  Consultando el valor del día…", style = MaterialTheme.typography.bodySmall)
                     }
                 } else if (estado.moneda != Moneda.CLP) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -206,7 +212,12 @@ fun CotizacionFormScreen(
             // ---------- Ítems ----------
             Row(verticalAlignment = Alignment.CenterVertically) {
                 TituloSeccion("Ítems (${estado.items.size})", modifier = Modifier.weight(1f))
-                OutlinedButton(onClick = viewModel::abrirNuevoItem) {
+                OutlinedButton(
+                    onClick = viewModel::abrirNuevoItem,
+                    shape = Pildora,
+                    border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.onSurface)
+                ) {
                     Icon(Icons.Filled.Add, contentDescription = null)
                     Text("Agregar ítem")
                 }
@@ -241,22 +252,6 @@ fun CotizacionFormScreen(
             }
 
             // ---------- Condiciones ----------
-            TituloSeccion("Descuento global")
-            SelectorOpciones(
-                opciones = TipoDescuento.entries,
-                seleccionada = estado.descuentoGlobalTipo,
-                textoDe = { if (it == TipoDescuento.PORCENTAJE) "Porcentaje (%)" else "Monto (${estado.moneda.simbolo})" },
-                onSeleccionar = viewModel::onDescuentoGlobalTipoChange
-            )
-            Spacer(Modifier.height(6.dp))
-            CampoTexto(
-                valor = estado.descuentoGlobal,
-                onValorChange = viewModel::onDescuentoGlobalChange,
-                etiqueta = "Descuento (opcional)",
-                icono = if (estado.descuentoGlobalTipo == TipoDescuento.PORCENTAJE) Icons.Filled.Percent else Icons.Filled.Discount,
-                error = estado.errores.descuentoGlobal,
-                tipoTeclado = KeyboardType.Decimal
-            )
             CampoTexto(
                 valor = estado.diasValidez,
                 onValorChange = viewModel::onDiasValidezChange,
@@ -276,10 +271,32 @@ fun CotizacionFormScreen(
                 ayuda = "${estado.notas.length}/500"
             )
 
-            TarjetaTotales(estado.totales, estado.moneda, estado.tipoCambio, Modifier.padding(vertical = 8.dp))
+            TarjetaTotales(estado.totales, estado.moneda, estado.tipoCambio, Modifier.padding(top = 8.dp))
+            // El descuento es opcional: queda como un enlace discreto bajo los totales
+            SeccionDescuento(
+                textoEnlace = "Agregar descuento a la cotización",
+                tipo = estado.descuentoGlobalTipo,
+                onTipoChange = viewModel::onDescuentoGlobalTipoChange,
+                valor = estado.descuentoGlobal,
+                onValorChange = viewModel::onDescuentoGlobalChange,
+                error = estado.errores.descuentoGlobal,
+                moneda = estado.moneda
+            )
+            Spacer(Modifier.height(8.dp))
 
 
         }
+    }
+
+    // Sin señal: se puede seguir en USD/UF con el último valor guardado, pero se avisa
+    estado.avisoMoneda?.let { aviso ->
+        AlertDialog(
+            onDismissRequest = viewModel::cerrarAvisoMoneda,
+            icon = { Icon(Icons.Filled.CloudOff, contentDescription = null) },
+            title = { Text("Sin conexión") },
+            text = { Text(aviso) },
+            confirmButton = { TextButton(onClick = viewModel::cerrarAvisoMoneda) { Text("Continuar") } }
+        )
     }
 
     estado.dialogoItem?.let { dialogo ->
@@ -328,7 +345,8 @@ private fun DialogoItem(
                     icono = Icons.Filled.Inventory2,
                     opciones = productos,
                     seleccionado = productos.find { it.id == estado.productoId },
-                    textoDe = { "${it.nombre} · ${Formatos.monto(it.precio)}" },
+                    textoDe = { it.nombre },
+                    textoSecundarioDe = { "${Formatos.monto(it.precio)} · ${it.descripcion}" },
                     onSeleccionar = onProducto,
                     error = estado.errores.producto
                 )
@@ -341,25 +359,23 @@ private fun DialogoItem(
                     estado.precio, onPrecio, "Precio unitario (${moneda.simbolo})", Icons.Filled.AttachMoney,
                     error = estado.errores.precio, tipoTeclado = KeyboardType.Decimal
                 )
-                Text("Descuento del ítem", style = MaterialTheme.typography.labelLarge, modifier = Modifier.padding(bottom = 4.dp))
-                SelectorOpciones(
-                    opciones = TipoDescuento.entries,
-                    seleccionada = estado.descuentoTipo,
-                    textoDe = { if (it == TipoDescuento.PORCENTAJE) "%" else moneda.simbolo },
-                    onSeleccionar = onDescuentoTipo
-                )
-                CampoTexto(
-                    estado.descuento, onDescuento, "Descuento (opcional)", Icons.Filled.Discount,
-                    error = estado.errores.descuento, tipoTeclado = KeyboardType.Decimal
-                )
                 CampoSelector(
                     etiqueta = "Impuesto",
                     icono = Icons.Filled.Percent,
                     opciones = impuestos,
                     seleccionado = impuestos.find { it.id == estado.impuestoId },
-                    textoDe = { "${it.nombre} (${Formatos.numero(it.porcentaje)}%)" },
+                    textoDe = { "${it.nombre} ${Formatos.numero(it.porcentaje)}%" },
                     onSeleccionar = onImpuesto,
                     error = estado.errores.impuesto
+                )
+                SeccionDescuento(
+                    textoEnlace = "Agregar descuento al ítem",
+                    tipo = estado.descuentoTipo,
+                    onTipoChange = onDescuentoTipo,
+                    valor = estado.descuento,
+                    onValorChange = onDescuento,
+                    error = estado.errores.descuento,
+                    moneda = moneda
                 )
             }
         },

@@ -46,6 +46,7 @@ data class DetalleCotizacionUi(
 sealed class EventoDetalleCotizacion {
     data class Mensaje(val texto: String) : EventoDetalleCotizacion()
     data class AbrirCorreo(val intent: Intent) : EventoDetalleCotizacion()
+    data class AbrirVisor(val intent: Intent) : EventoDetalleCotizacion()
     data class IrAFormulario(val id: String) : EventoDetalleCotizacion()
     data object Volver : EventoDetalleCotizacion()
 }
@@ -145,6 +146,19 @@ class CotizacionDetalleViewModel @Inject constructor(
                 mensaje = mensaje
             )
             _eventos.emit(EventoDetalleCotizacion.AbrirCorreo(intent))
+        }
+    }
+
+    // Genera el PDF y lo abre con el visor de archivos del teléfono
+    fun verPdf() {
+        val actual = detalle.value ?: return
+        viewModelScope.launch {
+            val cot = actual.datos.cotizacion
+            val contacto = actual.cliente?.contactos?.find { it.id == cot.contactoId }
+            val archivo = withContext(Dispatchers.IO) {
+                generadorPdf.generar(actual.datos, actual.empresa, actual.cliente?.cliente, contacto)
+            }
+            _eventos.emit(EventoDetalleCotizacion.AbrirVisor(compartirHelper.crearIntentVer(archivo)))
         }
     }
 

@@ -28,18 +28,18 @@ class GeneradorPdf @Inject constructor(
     private val alto = 842
     private val margen = 40f
 
-    private val azul = Color.rgb(31, 95, 122)
-    private val gris = Color.rgb(100, 110, 120)
+    private val negro = Color.rgb(10, 10, 10)
+    private val gris = Color.rgb(107, 107, 114)
 
-    private val titulo = Paint().apply { color = azul; textSize = 20f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
-    private val subtitulo = Paint().apply { color = azul; textSize = 12f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
+    private val titulo = Paint().apply { color = negro; textSize = 20f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
+    private val subtitulo = Paint().apply { color = negro; textSize = 12f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
     private val normal = Paint().apply { color = Color.BLACK; textSize = 10f; isAntiAlias = true }
     private val negrita = Paint().apply { color = Color.BLACK; textSize = 10f; typeface = Typeface.DEFAULT_BOLD; isAntiAlias = true }
     private val pequeno = Paint().apply { color = gris; textSize = 9f; isAntiAlias = true }
     private val derecha = Paint(normal).apply { textAlign = Paint.Align.RIGHT }
     private val derechaNegrita = Paint(negrita).apply { textAlign = Paint.Align.RIGHT }
-    private val linea = Paint().apply { color = Color.rgb(205, 215, 222); strokeWidth = 1f }
-    private val fondoTabla = Paint().apply { color = Color.rgb(205, 230, 242) }
+    private val linea = Paint().apply { color = Color.rgb(228, 228, 231); strokeWidth = 1f }
+    private val fondoTabla = Paint().apply { color = Color.rgb(244, 244, 245) }
 
     fun generar(
         datos: CotizacionConItems,
