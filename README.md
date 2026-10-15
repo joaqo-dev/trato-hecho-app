@@ -22,7 +22,7 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 |---|---|
 | **Login y sesión** | Ingreso con correo y clave. La empresa (tenant) se obtiene desde la API. La sesión queda guardada en DataStore. |
 | **Inicio (indicadores)** | Monto cotizado del mes, cotizaciones enviadas, tasa de aceptación, monto facturado, cotizaciones por estado y ranking de vendedores (supervisor y administrador). |
-| **Clientes** | Lista con búsqueda, detalle, formulario con validación de RUT chileno, correo y teléfono, y contactos del cliente. Funciona sin conexión. |
+| **Clientes** | Lista con búsqueda, detalle, formulario con validación de RUT chileno, correo y teléfono, y contactos del cliente. Funciona sin conexión. Cada cliente tiene un vendedor a cargo, que el administrador o el supervisor pueden **reasignar** (las cotizaciones existentes siguen siendo de quien las hizo). |
 | **Catálogo** | Productos/servicios, tipos de unidad e impuestos. El administrador los crea, edita y elimina; el resto solo los consulta. |
 | **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem, moneda CLP/USD/UF con valor de mindicador.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
 | **Envío por correo** | Genera el PDF de la cotización y abre la app de correo del teléfono con el PDF adjunto y el correo del cliente. Sin señal, la cotización queda **en cola** y llega una notificación cuando está lista para enviar. |
@@ -33,9 +33,9 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 
 | Perfil | Permisos |
 |---|---|
-| Vendedor | Gestiona sus propios clientes y cotizaciones. |
-| Supervisor | Ve y modifica las cotizaciones y clientes de los vendedores; ve indicadores y ranking. |
-| Administrador | Parametriza catálogo, impuestos, usuarios y datos de la empresa. Consulta todas las cotizaciones. |
+| Vendedor | Gestiona sus propios clientes (los que tiene a cargo) y sus cotizaciones. |
+| Supervisor | Ve y modifica las cotizaciones y clientes de los vendedores, reasigna clientes entre vendedores; ve indicadores y ranking. |
+| Administrador | Parametriza catálogo, impuestos, usuarios y datos de la empresa. Consulta todas las cotizaciones y reasigna clientes entre vendedores. |
 
 El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluación Final Transversal.
 
