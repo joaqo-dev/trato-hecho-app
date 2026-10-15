@@ -237,7 +237,8 @@ private fun TarjetaKpi(
             Spacer(Modifier.height(8.dp))
             Text(titulo, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                formato(animado.toDouble()),
+                // Al terminar la animación se muestra el valor exacto (Float pierde precisión en montos grandes)
+                formato(if (animado == valor.toFloat()) valor else animado.toDouble()),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 maxLines = 1,

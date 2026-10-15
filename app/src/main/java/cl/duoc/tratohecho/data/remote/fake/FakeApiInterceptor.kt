@@ -39,7 +39,7 @@ class FakeApiInterceptor(
 
         val (codigo, json) = try {
             val resultado = servidor.atender(request.method, ruta, cuerpo, token)
-            (if (resultado == null) 204 else 200) to (resultado?.let { gson.toJson(it) } ?: "")
+            200 to (resultado?.let { gson.toJson(it) } ?: "{}")
         } catch (e: ErrorServidor) {
             e.codigo to gson.toJson(ErrorResponse(e.message ?: "Error"))
         }
@@ -54,6 +54,6 @@ class FakeApiInterceptor(
     }
 
     companion object {
-        private const val DEMORA_MS = 600L
+        private const val DEMORA_MS = 300L
     }
 }

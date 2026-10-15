@@ -123,13 +123,13 @@ class CotizacionFormViewModel @Inject constructor(
     val eventos: SharedFlow<EventoFormCotizacion> = _eventos.asSharedFlow()
 
     val clientes: StateFlow<List<ClienteConContactos>> = clienteRepository.observarClientes()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val productos: StateFlow<List<ProductoEntity>> = catalogoRepository.observarProductos()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val unidades: StateFlow<List<UnidadEntity>> = catalogoRepository.observarUnidades()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
     val impuestos: StateFlow<List<ImpuestoEntity>> = catalogoRepository.observarImpuestos()
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyList())
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     init {
         val id: String? = savedStateHandle["id"]

@@ -6,6 +6,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,7 +34,8 @@ fun AppNavigation(
     }
 
     val navController = rememberNavController()
-    val inicio = if (estadoInicio == EstadoInicio.ConSesion) AppRoutes.PRINCIPAL else AppRoutes.LOGIN
+    // Se calcula una sola vez para que el grafo no se reinicie al cambiar la sesión
+    val inicio = remember { if (estadoInicio == EstadoInicio.ConSesion) AppRoutes.PRINCIPAL else AppRoutes.LOGIN }
 
     // Si la sesión se cierra (logout) se vuelve al login limpiando el historial
     LaunchedEffect(estadoInicio) {
