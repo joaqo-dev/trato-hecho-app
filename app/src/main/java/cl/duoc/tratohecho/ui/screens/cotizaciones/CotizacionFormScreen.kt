@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.background
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.foundation.BorderStroke
 import cl.duoc.tratohecho.ui.theme.Pildora
@@ -66,7 +68,6 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import cl.duoc.tratohecho.data.local.entity.ImpuestoEntity
 import cl.duoc.tratohecho.data.local.entity.ProductoEntity
 import cl.duoc.tratohecho.domain.model.Moneda
 import cl.duoc.tratohecho.domain.model.TipoDescuento
@@ -93,7 +94,6 @@ fun CotizacionFormScreen(
     val estado by viewModel.estado.collectAsStateWithLifecycle()
     val clientes by viewModel.clientes.collectAsStateWithLifecycle()
     val productos by viewModel.productos.collectAsStateWithLifecycle()
-    val impuestos by viewModel.impuestos.collectAsStateWithLifecycle()
 
     LaunchedEffect(Unit) {
         viewModel.eventos.collect { evento ->
@@ -304,34 +304,30 @@ fun CotizacionFormScreen(
             estado = dialogo,
             moneda = estado.moneda,
             productos = productos,
-            impuestos = impuestos,
             onProducto = viewModel::onItemProductoChange,
             onDescripcion = viewModel::onItemDescripcionChange,
             onCantidad = viewModel::onItemCantidadChange,
             onPrecio = viewModel::onItemPrecioChange,
             onDescuentoTipo = viewModel::onItemDescuentoTipoChange,
             onDescuento = viewModel::onItemDescuentoChange,
-            onImpuesto = viewModel::onItemImpuestoChange,
             onGuardar = viewModel::guardarItem,
             onCancelar = viewModel::cerrarItem
         )
     }
 }
 
-// Formulario de ítem: se elige un producto del catálogo y se ajusta cantidad, precio, descuento e impuesto
+// Formulario de ítem: se elige un producto del catálogo (que trae su impuesto) y se ajusta cantidad, precio y descuento
 @Composable
 private fun DialogoItem(
     estado: ItemFormState,
     moneda: Moneda,
     productos: List<ProductoEntity>,
-    impuestos: List<ImpuestoEntity>,
     onProducto: (ProductoEntity) -> Unit,
     onDescripcion: (String) -> Unit,
     onCantidad: (String) -> Unit,
     onPrecio: (String) -> Unit,
     onDescuentoTipo: (TipoDescuento) -> Unit,
     onDescuento: (String) -> Unit,
-    onImpuesto: (ImpuestoEntity) -> Unit,
     onGuardar: () -> Unit,
     onCancelar: () -> Unit
 ) {
@@ -359,15 +355,35 @@ private fun DialogoItem(
                     estado.precio, onPrecio, "Precio unitario (${moneda.simbolo})", Icons.Filled.AttachMoney,
                     error = estado.errores.precio, tipoTeclado = KeyboardType.Decimal
                 )
-                CampoSelector(
-                    etiqueta = "Impuesto",
-                    icono = Icons.Filled.Percent,
-                    opciones = impuestos,
-                    seleccionado = impuestos.find { it.id == estado.impuestoId },
-                    textoDe = { "${it.nombre} ${Formatos.numero(it.porcentaje)}%" },
-                    onSeleccionar = onImpuesto,
-                    error = estado.errores.impuesto
-                )
+                // El impuesto se muestra pero no se elige: viene del producto del catálogo
+                if (estado.impuestoNombre != null) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 4.dp)
+                            .clip(MaterialTheme.shapes.medium)
+                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                    ) {
+                        Icon(Icons.Filled.Percent, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Spacer(Modifier.width(12.dp))
+                        Column(Modifier.weight(1f)) {
+                            Text(
+                                if (estado.impuestoPorcentaje > 0) "${estado.impuestoNombre} ${Formatos.numero(estado.impuestoPorcentaje)}%"
+                                else estado.impuestoNombre,
+                                style = MaterialTheme.typography.bodyLarge,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Definido en el catálogo para este producto",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                }
+                estado.errores.impuesto?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 SeccionDescuento(
                     textoEnlace = "Agregar descuento al ítem",
                     tipo = estado.descuentoTipo,

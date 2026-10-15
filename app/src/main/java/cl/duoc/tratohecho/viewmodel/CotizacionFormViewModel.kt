@@ -69,7 +69,9 @@ data class ItemFormState(
     val precio: String = "",
     val descuentoTipo: TipoDescuento = TipoDescuento.PORCENTAJE,
     val descuento: String = "",
-    val impuestoId: String? = null,
+    // El impuesto viene del producto del catálogo (lo define el administrador): no se edita en el ítem
+    val impuestoNombre: String? = null,
+    val impuestoPorcentaje: Double = 0.0,
     val errores: ItemErrores = ItemErrores(),
     val intentoGuardar: Boolean = false
 )
@@ -264,7 +266,8 @@ class CotizacionFormViewModel @Inject constructor(
                 precio = Formatos.paraCampo(item.precioUnitario),
                 descuentoTipo = item.descuentoTipo,
                 descuento = if (item.descuentoValor > 0) Formatos.paraCampo(item.descuentoValor) else "",
-                impuestoId = impuestos.value.find { imp -> imp.nombre == item.impuestoNombre && imp.porcentaje == item.impuestoPorcentaje }?.id
+                impuestoNombre = item.impuestoNombre,
+                impuestoPorcentaje = item.impuestoPorcentaje
             )
         )
     }
@@ -284,13 +287,15 @@ class CotizacionFormViewModel @Inject constructor(
         val e = _estado.value
         val unidad = unidades.value.find { it.id == producto.unidadId }?.abreviatura ?: "un"
         val precio = CalculadoraCotizacion.convertirDesdeClp(producto.precio, e.moneda, e.tipoCambio)
+        val impuesto = impuestos.value.find { it.id == producto.impuestoId }
         actualizarItem {
             it.copy(
                 productoId = producto.id,
                 descripcion = producto.nombre,
                 unidad = unidad,
                 precio = Formatos.paraCampo(precio),
-                impuestoId = producto.impuestoId
+                impuestoNombre = impuesto?.nombre,
+                impuestoPorcentaje = impuesto?.porcentaje ?: 0.0
             )
         }
     }
@@ -300,7 +305,6 @@ class CotizacionFormViewModel @Inject constructor(
     fun onItemPrecioChange(v: String) = actualizarItem { it.copy(precio = v) }
     fun onItemDescuentoTipoChange(v: TipoDescuento) = actualizarItem { it.copy(descuentoTipo = v) }
     fun onItemDescuentoChange(v: String) = actualizarItem { it.copy(descuento = v) }
-    fun onItemImpuestoChange(v: ImpuestoEntity) = actualizarItem { it.copy(impuestoId = v.id) }
 
     private fun validarItem(i: ItemFormState): ItemErrores {
         val bruto = Validaciones.aNumero(i.cantidad) * Validaciones.aNumero(i.precio)
@@ -310,7 +314,7 @@ class CotizacionFormViewModel @Inject constructor(
             cantidad = Validaciones.numeroPositivo(i.cantidad, "La cantidad"),
             precio = Validaciones.numeroPositivo(i.precio, "El precio"),
             descuento = Validaciones.descuento(i.descuento, i.descuentoTipo == TipoDescuento.PORCENTAJE, bruto),
-            impuesto = if (i.impuestoId == null) "Selecciona un impuesto" else null
+            impuesto = if (i.productoId != null && i.impuestoNombre == null) "El producto no tiene impuesto en el catálogo" else null
         )
     }
 
@@ -321,7 +325,6 @@ class CotizacionFormViewModel @Inject constructor(
             _estado.update { it.copy(dialogoItem = dialogo.copy(errores = errores, intentoGuardar = true)) }
             return
         }
-        val impuesto = impuestos.value.find { it.id == dialogo.impuestoId }
         val item = ItemCotizacionEntity(
             id = dialogo.id,
             cotizacionId = _estado.value.id,
@@ -332,8 +335,8 @@ class CotizacionFormViewModel @Inject constructor(
             precioUnitario = Validaciones.aNumero(dialogo.precio),
             descuentoTipo = dialogo.descuentoTipo,
             descuentoValor = Validaciones.aNumero(dialogo.descuento),
-            impuestoNombre = impuesto?.nombre ?: "IVA",
-            impuestoPorcentaje = impuesto?.porcentaje ?: 19.0
+            impuestoNombre = dialogo.impuestoNombre ?: "",
+            impuestoPorcentaje = dialogo.impuestoPorcentaje
         )
         actualizar { e ->
             val existe = e.items.any { it.id == item.id }
