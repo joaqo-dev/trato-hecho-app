@@ -17,3 +17,7 @@ local.properties
 # Kotlin
 .kotlin/
 
+
+# Configuración local de Android Studio
+.idea/
+gradle/gradle-daemon-jvm.properties
