@@ -8,6 +8,8 @@ seguimiento, incluso **sin conexión estable**.
 - **Evaluación:** Evaluación Parcial 2 – Encargo
 - **Estudiante:** Joaquin Cabrera
 
+La documentación completa del proyecto (perfiles, arquitectura, archivos, reglas de negocio y cumplimiento de la pauta) está en [DOCUMENTACION.md](DOCUMENTACION.md).
+
 ---
 
 ## Problema que resuelve
