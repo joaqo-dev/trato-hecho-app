@@ -21,3 +21,6 @@ local.properties
 # Configuración local de Android Studio
 .idea/
 gradle/gradle-daemon-jvm.properties
+
+# Secretos del despliegue (compose.yml)
+.env

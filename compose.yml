@@ -1,0 +1,42 @@
+# Servidor de Trato Hecho (API + panel web) con su base PostgreSQL.
+# Se despliega en /srv/apps/trato-hecho; los secretos van en .env (ver .env.example).
+services:
+  api:
+    build: ./backend
+    container_name: tratohecho-api
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DB_URL: jdbc:postgresql://db:5432/tratohecho
+      DB_USUARIO: tratohecho
+      DB_CLAVE: ${POSTGRES_PASSWORD}
+      TZ: America/Santiago
+    mem_limit: 768m
+    depends_on:
+      db:
+        condition: service_healthy
+    networks: [web, internal]
+
+  db:
+    image: postgres:17-alpine
+    container_name: tratohecho-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: tratohecho
+      POSTGRES_DB: tratohecho
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    volumes:
+      - db_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U tratohecho -d tratohecho"]
+      interval: 5s
+      retries: 10
+    networks: [internal]
+
+networks:
+  web:
+    external: true
+  internal:
+
+volumes:
+  db_data:
