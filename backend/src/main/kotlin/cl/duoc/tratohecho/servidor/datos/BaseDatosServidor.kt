@@ -1,17 +1,16 @@
-package cl.duoc.tratohecho.data.remote.fake
+package cl.duoc.tratohecho.servidor.datos
 
-import cl.duoc.tratohecho.data.local.entity.ClienteConContactos
-import cl.duoc.tratohecho.data.local.entity.CotizacionConItems
-import cl.duoc.tratohecho.data.local.entity.EmpresaEntity
-import cl.duoc.tratohecho.data.local.entity.ImpuestoEntity
-import cl.duoc.tratohecho.data.local.entity.ProductoEntity
-import cl.duoc.tratohecho.data.local.entity.UnidadEntity
-import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
+import cl.duoc.tratohecho.servidor.modelo.ClienteConContactos
+import cl.duoc.tratohecho.servidor.modelo.CotizacionConItems
+import cl.duoc.tratohecho.servidor.modelo.EmpresaEntity
+import cl.duoc.tratohecho.servidor.modelo.ImpuestoEntity
+import cl.duoc.tratohecho.servidor.modelo.ProductoEntity
+import cl.duoc.tratohecho.servidor.modelo.UnidadEntity
+import cl.duoc.tratohecho.servidor.modelo.UsuarioEntity
 
-// "Base de datos" del servidor simulado. Contiene los datos de TODAS las empresas;
-// el servidor filtra por empresa antes de responder.
+// Datos del servidor en memoria. Contiene TODAS las empresas; el servidor filtra por empresa
+// antes de responder. AlmacenSqlite los guarda en la base de datos después de cada cambio.
 data class BaseDatosServidor(
-    val fechaSemilla: Long,
     val empresas: MutableList<EmpresaEntity> = mutableListOf(),
     val usuarios: MutableList<UsuarioServidor> = mutableListOf(),
     val unidades: MutableList<UnidadEntity> = mutableListOf(),

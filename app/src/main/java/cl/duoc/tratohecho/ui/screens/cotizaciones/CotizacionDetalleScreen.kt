@@ -43,7 +43,6 @@ import androidx.compose.material.icons.filled.EventBusy
 import androidx.compose.material.icons.filled.HourglassTop
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PictureAsPdf
-import androidx.compose.material.icons.filled.Science
 import androidx.compose.material.icons.filled.ContentCopy
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -248,7 +247,6 @@ fun CotizacionDetalleScreen(
                 val acciones = buildList {
                     if (puedeModificar && cot.estado == EstadoCotizacion.BORRADOR) add("editar")
                     if (puedeModificar && cot.estado.permiteNuevaVersion) add("version")
-                    if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) add("simular")
                     if (puedeModificar && cot.estado.permiteAnular) add("anular")
                     if (cot.cotizacionOrigenId != null) add("anterior")
                 }
@@ -257,11 +255,6 @@ fun CotizacionDetalleScreen(
                     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                         if ("editar" in acciones) BotonSecundario("Editar borrador", { onEditar(cot.id) }, icono = Icons.Filled.Edit)
                         if ("version" in acciones) BotonSecundario("Crear nueva versión", { confirmarVersion = true }, icono = Icons.Filled.ContentCopy)
-                        // Solo para la demo: la aceptación real ocurre en la página pública de Trato Hecho
-                        if ("simular" in acciones) BotonSecundario(
-                            "Simular respuesta del cliente (demo)", viewModel::simularRespuesta,
-                            icono = Icons.Filled.Science, habilitado = !procesando
-                        )
                         if ("anterior" in acciones) BotonSecundario(
                             "Ver versión anterior", { onAbrirCotizacion(cot.cotizacionOrigenId!!) }, icono = Icons.Filled.History
                         )

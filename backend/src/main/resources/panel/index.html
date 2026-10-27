@@ -1,0 +1,359 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Trato Hecho · Panel</title>
+<style>
+  :root {
+    --fondo: #f4f4f5; --tarjeta: #ffffff; --texto: #0b0b0c; --suave: #6b6b73; --borde: #e4e4e7;
+    --negro: #0b0b0c; --ambar: #e8952f; --ambar-suave: #fdf1e1;
+    --azul: #2563eb; --azul-suave: #e8effd; --verde: #16a34a; --verde-suave: #e6f6ec;
+    --rojo: #dc2626; --rojo-suave: #fdeaea; --violeta: #7c3aed; --violeta-suave: #f1eafd;
+    --gris-suave: #ededf0;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --fondo: #0b0b0c; --tarjeta: #18181b; --texto: #f4f4f5; --suave: #a1a1aa; --borde: #2a2a30;
+      --negro: #f4f4f5; --ambar-suave: #3a2a14; --azul-suave: #172240; --verde-suave: #12301e;
+      --rojo-suave: #3a1616; --violeta-suave: #2a1c45; --gris-suave: #26262b;
+    }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--fondo); color: var(--texto); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  button { font: inherit; cursor: pointer; border: 0; border-radius: 999px; padding: 8px 16px; font-weight: 600; }
+  button:disabled { opacity: .5; cursor: default; }
+  input, select { font: inherit; color: inherit; background: var(--tarjeta); border: 1px solid var(--borde); border-radius: 12px; padding: 10px 14px; }
+  .oculto { display: none !important; }
+
+  /* Login */
+  #login { min-height: 100vh; display: grid; place-items: center; padding: 16px; }
+  .caja-login { background: var(--tarjeta); border-radius: 24px; padding: 32px; width: 100%; max-width: 380px; display: grid; gap: 14px; }
+  .logo { width: 56px; height: 56px; border-radius: 16px; background: #0b0b0c; display: grid; place-items: center; color: var(--ambar); font-size: 28px; }
+  .caja-login h1 { margin: 0; font-size: 24px; }
+  .caja-login p { margin: 0; color: var(--suave); }
+  .primario { background: var(--negro); color: var(--fondo); padding: 12px 18px; }
+  .error { color: var(--rojo); font-size: 14px; min-height: 20px; }
+
+  /* Panel */
+  header { position: sticky; top: 0; z-index: 5; background: var(--fondo); border-bottom: 1px solid var(--borde); }
+  .barra { max-width: 1200px; margin: 0 auto; padding: 12px 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  .barra h1 { margin: 0; font-size: 18px; display: flex; align-items: center; gap: 10px; }
+  .barra .logo { width: 34px; height: 34px; border-radius: 10px; font-size: 18px; }
+  .espacio { flex: 1; }
+  .vivo { color: var(--suave); font-size: 13px; display: flex; align-items: center; gap: 6px; }
+  .punto { width: 8px; height: 8px; border-radius: 50%; background: var(--verde); display: inline-block; }
+  .punto.apagado { background: var(--suave); opacity: .5; }
+  .secundario { background: var(--gris-suave); color: var(--texto); }
+  main { max-width: 1200px; margin: 0 auto; padding: 16px; display: grid; gap: 20px; }
+  .empresas { display: flex; gap: 10px; flex-wrap: wrap; }
+  .empresa-tab { background: var(--tarjeta); color: var(--texto); border-radius: 16px; padding: 12px 16px; text-align: left; display: grid; gap: 2px; border: 2px solid transparent; }
+  .empresa-tab.activa { border-color: var(--negro); }
+  .empresa-tab small { color: var(--suave); font-weight: 400; }
+  .grilla { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 16px; }
+  .tarjeta { background: var(--tarjeta); border-radius: 24px; padding: 18px; }
+  .tarjeta h2 { margin: 0 0 12px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+  .contador { background: var(--gris-suave); border-radius: 999px; padding: 1px 9px; font-size: 13px; }
+  .vacio { color: var(--suave); font-size: 14px; padding: 8px 0; }
+  .fila { display: flex; gap: 12px; align-items: center; padding: 12px 0; border-top: 1px solid var(--borde); flex-wrap: wrap; }
+  .fila:first-of-type { border-top: 0; }
+  .fila .info { flex: 1; min-width: 180px; }
+  .fila .titulo { font-weight: 600; }
+  .fila .detalle { color: var(--suave); font-size: 13px; }
+  .monto { font-weight: 700; white-space: nowrap; }
+  .acciones { display: flex; gap: 8px; }
+  .aceptar { background: var(--verde); color: #fff; }
+  .rechazar { background: var(--rojo-suave); color: var(--rojo); }
+  .facturar { background: var(--violeta); color: #fff; }
+  .chip { display: inline-block; border-radius: 999px; padding: 2px 10px; font-size: 12px; font-weight: 600; white-space: nowrap; }
+  .BORRADOR, .REEMPLAZADA, .ANULADA { background: var(--gris-suave); color: var(--suave); }
+  .ENVIADA { background: var(--azul-suave); color: var(--azul); }
+  .ACEPTADA { background: var(--verde-suave); color: var(--verde); }
+  .RECHAZADA { background: var(--rojo-suave); color: var(--rojo); }
+  .FACTURADA { background: var(--violeta-suave); color: var(--violeta); }
+  .VENCIDA { background: var(--ambar-suave); color: var(--ambar); }
+  .tabla-cont { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 14px; }
+  th { text-align: left; color: var(--suave); font-weight: 500; padding: 8px 10px; border-bottom: 1px solid var(--borde); white-space: nowrap; }
+  td { padding: 10px; border-bottom: 1px solid var(--borde); vertical-align: top; }
+  .filtros { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  .filtros input { flex: 1; min-width: 180px; }
+  #aviso { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); background: var(--negro); color: var(--fondo); padding: 12px 20px; border-radius: 999px; font-weight: 600; opacity: 0; transition: opacity .2s; pointer-events: none; max-width: calc(100% - 32px); }
+  #aviso.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<!-- Ingreso al panel -->
+<section id="login">
+  <form class="caja-login" id="formLogin">
+    <div class="logo">🤝</div>
+    <h1>Panel de Trato Hecho</h1>
+    <p>Simula a los clientes (aceptar o rechazar) y la facturación de cada empresa.</p>
+    <input id="correo" type="email" placeholder="Correo" value="panel@tratohecho.cl" autocomplete="username" required>
+    <input id="clave" type="password" placeholder="Clave" autocomplete="current-password" required>
+    <div class="error" id="errorLogin"></div>
+    <button class="primario" type="submit">Ingresar</button>
+  </form>
+</section>
+
+<!-- Panel -->
+<section id="panel" class="oculto">
+  <header>
+    <div class="barra">
+      <h1><span class="logo">🤝</span> Panel Trato Hecho</h1>
+      <span class="espacio"></span>
+      <span class="vivo"><span class="punto" id="puntoVivo"></span><span id="textoVivo">En vivo</span></span>
+      <button class="secundario" id="btnReiniciar" title="Vuelve a los datos de prueba iniciales">Reiniciar datos</button>
+      <button class="secundario" id="btnSalir">Salir</button>
+    </div>
+  </header>
+  <main>
+    <div class="empresas" id="empresas"></div>
+
+    <div class="grilla">
+      <div class="tarjeta">
+        <h2>Esperando respuesta del cliente <span class="contador" id="cPorResponder">0</span></h2>
+        <div id="porResponder"></div>
+      </div>
+      <div class="tarjeta">
+        <h2>Aceptadas, por facturar <span class="contador" id="cPorFacturar">0</span></h2>
+        <div id="porFacturar"></div>
+      </div>
+      <div class="tarjeta">
+        <h2>Usuarios y última conexión</h2>
+        <div id="usuarios"></div>
+      </div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Todas las cotizaciones <span class="contador" id="cCotizaciones">0</span></h2>
+      <div class="filtros">
+        <input id="buscar" placeholder="Buscar por número, cliente o vendedor">
+        <select id="filtroEstado"><option value="">Todos los estados</option></select>
+      </div>
+      <div class="tabla-cont"><table>
+        <thead><tr><th>Número</th><th>Cliente</th><th>Vendedor</th><th>Estado</th><th>Total</th><th>Enviada</th><th>Respuesta</th><th>Facturada</th></tr></thead>
+        <tbody id="tablaCotizaciones"></tbody>
+      </table></div>
+    </div>
+
+    <div class="tarjeta">
+      <h2>Clientes <span class="contador" id="cClientes">0</span></h2>
+      <div class="tabla-cont"><table>
+        <thead><tr><th>Razón social</th><th>RUT</th><th>Vendedor</th><th>Correo</th><th>Teléfono</th><th>Estado</th></tr></thead>
+        <tbody id="tablaClientes"></tbody>
+      </table></div>
+    </div>
+  </main>
+</section>
+
+<div id="aviso"></div>
+
+<script>
+const ESTADOS = { BORRADOR: "Borrador", ENVIADA: "Enviada", ACEPTADA: "Aceptada", RECHAZADA: "Rechazada",
+  FACTURADA: "Facturada", VENCIDA: "Vencida", ANULADA: "Anulada", REEMPLAZADA: "Reemplazada" };
+const ROLES = { ADMINISTRADOR: "Administrador", SUPERVISOR: "Supervisor", VENDEDOR: "Vendedor" };
+const REFRESCO_MS = 3000;
+
+let token = sessionStorage.getItem("tokenPanel");
+let empresaId = localStorage.getItem("empresaPanel");
+let datos = null;
+let temporizador = null;
+
+const $ = (id) => document.getElementById(id);
+const esc = (t) => String(t ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+Object.entries(ESTADOS).forEach(([k, v]) => $("filtroEstado").insertAdjacentHTML("beforeend", `<option value="${k}">${v}</option>`));
+
+async function api(ruta, metodo = "GET", cuerpo) {
+  const r = await fetch("/panel/api" + ruta, {
+    method: metodo,
+    headers: { "Content-Type": "application/json", ...(token ? { Authorization: "Bearer " + token } : {}) },
+    body: cuerpo ? JSON.stringify(cuerpo) : undefined
+  });
+  const json = await r.json().catch(() => ({}));
+  if (r.status === 401 && ruta !== "/login") { salir(); throw new Error("Sesión expirada"); }
+  if (!r.ok) throw new Error(json.mensaje || "Error " + r.status);
+  return json;
+}
+
+function avisar(texto) {
+  const a = $("aviso");
+  a.textContent = texto;
+  a.classList.add("visible");
+  clearTimeout(avisar.t);
+  avisar.t = setTimeout(() => a.classList.remove("visible"), 2600);
+}
+
+function dinero(cot) {
+  const dec = cot.moneda === "CLP" ? 0 : 2;
+  const simbolo = { CLP: "$", USD: "US$", UF: "UF" }[cot.moneda] || "";
+  const n = (cot.total || 0).toLocaleString("es-CL", { minimumFractionDigits: dec, maximumFractionDigits: dec });
+  return cot.moneda === "UF" ? `UF ${n}` : `${simbolo}${n}`;
+}
+const fecha = (ms) => ms ? new Date(ms).toLocaleString("es-CL", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" }) : "—";
+const numero = (c) => c.version > 1 ? `${c.numero} v${c.version}` : c.numero;
+const chip = (estado) => `<span class="chip ${estado}">${ESTADOS[estado] || estado}</span>`;
+
+function haceCuanto(ms, ahora) {
+  if (!ms) return "Sin actividad desde que arrancó el servidor";
+  const s = Math.max(0, Math.round((ahora - ms) / 1000));
+  if (s < 60) return `hace ${s} s`;
+  if (s < 3600) return `hace ${Math.round(s / 60)} min`;
+  return `hace ${Math.round(s / 3600)} h`;
+}
+
+// ---------- Ingreso ----------
+$("formLogin").addEventListener("submit", async (e) => {
+  e.preventDefault();
+  $("errorLogin").textContent = "";
+  try {
+    const r = await api("/login", "POST", { correo: $("correo").value, clave: $("clave").value });
+    token = r.token;
+    sessionStorage.setItem("tokenPanel", token);
+    mostrarPanel();
+  } catch (err) {
+    $("errorLogin").textContent = err.message;
+  }
+});
+
+function salir() {
+  token = null;
+  sessionStorage.removeItem("tokenPanel");
+  clearInterval(temporizador);
+  $("panel").classList.add("oculto");
+  $("login").classList.remove("oculto");
+}
+$("btnSalir").addEventListener("click", salir);
+
+$("btnReiniciar").addEventListener("click", async () => {
+  if (!confirm("¿Volver a los datos de prueba iniciales? Se pierde todo lo creado desde la app.\n\nDespués borra los datos de la app en el teléfono (Ajustes → Apps → Trato Hecho → Almacenamiento) o cierra sesión.")) return;
+  try { await api("/reiniciar", "POST"); avisar("Datos reiniciados"); refrescar(); } catch (err) { avisar(err.message); }
+});
+
+function mostrarPanel() {
+  $("login").classList.add("oculto");
+  $("panel").classList.remove("oculto");
+  refrescar();
+  clearInterval(temporizador);
+  temporizador = setInterval(refrescar, REFRESCO_MS);
+}
+
+// ---------- Datos ----------
+async function refrescar() {
+  try {
+    const empresas = await api("/empresas");
+    if (!empresaId || !empresas.some((e) => e.empresa.id === empresaId)) empresaId = empresas[0]?.empresa.id;
+    pintarEmpresas(empresas);
+    if (empresaId) {
+      datos = await api("/empresas/" + encodeURIComponent(empresaId));
+      pintar();
+    }
+    $("puntoVivo").classList.remove("apagado");
+    $("textoVivo").textContent = "En vivo · " + new Date().toLocaleTimeString("es-CL");
+  } catch (err) {
+    $("puntoVivo").classList.add("apagado");
+    $("textoVivo").textContent = "Sin conexión con el servidor";
+  }
+}
+
+function pintarEmpresas(empresas) {
+  $("empresas").innerHTML = empresas.map((e) => `
+    <button class="empresa-tab ${e.empresa.id === empresaId ? "activa" : ""}" data-id="${esc(e.empresa.id)}">
+      ${esc(e.empresa.razonSocial)}
+      <small>${e.clientes} clientes · ${e.cotizaciones} cotizaciones · ${e.porResponder} por responder · ${e.porFacturar} por facturar</small>
+    </button>`).join("");
+  document.querySelectorAll(".empresa-tab").forEach((b) => b.addEventListener("click", () => {
+    empresaId = b.dataset.id;
+    localStorage.setItem("empresaPanel", empresaId);
+    refrescar();
+  }));
+}
+
+function filaCotizacion(c, botones) {
+  return `<div class="fila">
+    <div class="info">
+      <div class="titulo">${esc(numero(c))} · ${esc(c.clienteNombre)}</div>
+      <div class="detalle">${esc(c.vendedorNombre)} · ${c.estado === "ENVIADA" ? "enviada " + fecha(c.fechaEnvio) + " · vence " + fecha(c.fechaVencimiento) : "aceptada " + fecha(c.fechaRespuesta)}</div>
+    </div>
+    <span class="monto">${dinero(c)}</span>
+    <div class="acciones">${botones}</div>
+  </div>`;
+}
+
+function pintar() {
+  const cots = datos.cotizaciones.map((x) => x.cotizacion);
+
+  const porResponder = cots.filter((c) => c.estado === "ENVIADA");
+  $("cPorResponder").textContent = porResponder.length;
+  $("porResponder").innerHTML = porResponder.length ? porResponder.map((c) => filaCotizacion(c, `
+      <button class="aceptar" data-accion="aceptar" data-id="${esc(c.id)}">Aceptar</button>
+      <button class="rechazar" data-accion="rechazar" data-id="${esc(c.id)}">Rechazar</button>`)).join("")
+    : `<div class="vacio">No hay cotizaciones enviadas esperando respuesta.</div>`;
+
+  const porFacturar = cots.filter((c) => c.estado === "ACEPTADA");
+  $("cPorFacturar").textContent = porFacturar.length;
+  $("porFacturar").innerHTML = porFacturar.length ? porFacturar.map((c) => filaCotizacion(c, `
+      <button class="facturar" data-accion="facturar" data-id="${esc(c.id)}">Facturar</button>`)).join("")
+    : `<div class="vacio">No hay cotizaciones aceptadas pendientes de factura.</div>`;
+
+  $("usuarios").innerHTML = datos.usuarios.map(({ usuario, ultimaActividad }) => {
+    const conectado = ultimaActividad && datos.ahora - ultimaActividad < 30000;
+    return `<div class="fila">
+      <span class="punto ${conectado ? "" : "apagado"}"></span>
+      <div class="info">
+        <div class="titulo">${esc(usuario.nombre)}${usuario.activo ? "" : " (de baja)"}</div>
+        <div class="detalle">${ROLES[usuario.rol]} · ${esc(usuario.correo)}</div>
+      </div>
+      <span class="detalle">${haceCuanto(ultimaActividad, datos.ahora)}</span>
+    </div>`;
+  }).join("");
+
+  pintarTablaCotizaciones();
+
+  $("cClientes").textContent = datos.clientes.length;
+  $("tablaClientes").innerHTML = datos.clientes.map((c) => `<tr>
+      <td>${esc(c.razonSocial)}</td><td>${esc(c.rut)}</td><td>${esc(c.vendedorNombre)}</td>
+      <td>${esc(c.correo)}</td><td>${esc(c.telefono)}</td>
+      <td>${c.activo ? '<span class="chip ACEPTADA">Activo</span>' : '<span class="chip ANULADA">De baja</span>'}</td>
+    </tr>`).join("");
+}
+
+function pintarTablaCotizaciones() {
+  if (!datos) return;
+  const texto = $("buscar").value.trim().toLowerCase();
+  const estado = $("filtroEstado").value;
+  const lista = datos.cotizaciones.map((x) => x.cotizacion).filter((c) =>
+    (!estado || c.estado === estado) &&
+    (!texto || [numero(c), c.clienteNombre, c.vendedorNombre].join(" ").toLowerCase().includes(texto)));
+  $("cCotizaciones").textContent = lista.length;
+  $("tablaCotizaciones").innerHTML = lista.map((c) => `<tr>
+      <td><b>${esc(numero(c))}</b></td><td>${esc(c.clienteNombre)}</td><td>${esc(c.vendedorNombre)}</td>
+      <td>${chip(c.estado)}</td><td class="monto">${dinero(c)}</td>
+      <td>${fecha(c.fechaEnvio)}</td><td>${fecha(c.fechaRespuesta)}</td><td>${fecha(c.fechaFacturacion)}</td>
+    </tr>`).join("") || `<tr><td colspan="8" class="vacio">Sin resultados</td></tr>`;
+}
+$("buscar").addEventListener("input", pintarTablaCotizaciones);
+$("filtroEstado").addEventListener("change", pintarTablaCotizaciones);
+
+// Botones Aceptar / Rechazar / Facturar
+document.addEventListener("click", async (e) => {
+  const b = e.target.closest("button[data-accion]");
+  if (!b) return;
+  b.disabled = true;
+  const textos = { aceptar: "aceptada por el cliente", rechazar: "rechazada por el cliente", facturar: "facturada" };
+  try {
+    const r = await api(`/cotizaciones/${encodeURIComponent(b.dataset.id)}/${b.dataset.accion}`, "POST");
+    avisar(`${numero(r.cotizacion)} ${textos[b.dataset.accion]}. La app se enterará en su próxima sincronización.`);
+    refrescar();
+  } catch (err) {
+    avisar(err.message);
+    b.disabled = false;
+  }
+});
+
+if (token) mostrarPanel();
+</script>
+</body>
+</html>

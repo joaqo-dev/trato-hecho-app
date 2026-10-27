@@ -182,14 +182,4 @@ class CotizacionDetalleViewModel @Inject constructor(
             }
         }
     }
-
-    fun simularRespuesta() {
-        viewModelScope.launch {
-            _procesando.value = true
-            cotizacionRepository.simularRespuesta(cotizacionId)
-                .onSuccess { _eventos.emit(EventoDetalleCotizacion.Mensaje("El cliente respondió: ${it.cotizacion.estado.etiqueta}")) }
-                .onFailure { _eventos.emit(EventoDetalleCotizacion.Mensaje(it.message ?: "No se pudo simular la respuesta")) }
-            _procesando.value = false
-        }
-    }
 }

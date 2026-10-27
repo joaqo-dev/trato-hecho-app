@@ -86,6 +86,7 @@ class CotizacionRepository @Inject constructor(
             fechaEnvio = null,
             fechaVencimiento = null,
             fechaRespuesta = null,
+            fechaFacturacion = null,
             pendienteSync = true,
             envioPendiente = false
         )
@@ -112,11 +113,4 @@ class CotizacionRepository @Inject constructor(
             false
         }
     }
-
-    // Demo: pide a la API simulada que el cliente responda la cotización
-    suspend fun simularRespuesta(id: String): Result<CotizacionConItems> =
-        llamarApi { api.simularRespuesta(id) }.map { respuesta ->
-            cotizacionDao.guardarConItems(respuesta.cotizacion, respuesta.items)
-            respuesta
-        }
 }

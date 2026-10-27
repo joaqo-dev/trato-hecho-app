@@ -18,7 +18,8 @@ import javax.inject.Singleton
 // Resultado de una sincronización (lo usa GestorSincronizacion para mostrar notificaciones)
 data class ResultadoSincronizacion(
     val listasParaEnviar: List<CotizacionEntity>,
-    val respondidas: List<CotizacionEntity>
+    val respondidas: List<CotizacionEntity>,
+    val facturadas: List<CotizacionEntity>
 )
 
 // Sube lo que se hizo sin conexión y baja lo último de la API
@@ -74,6 +75,11 @@ class SincronizacionRepository @Inject constructor(
             estadosAntes[it.id] == EstadoCotizacion.ENVIADA &&
                 (it.estado == EstadoCotizacion.ACEPTADA || it.estado == EstadoCotizacion.RECHAZADA)
         }
-        return ResultadoSincronizacion(listasParaEnviar, respondidas)
+        // 5) Detectar cotizaciones que la empresa facturó en la plataforma
+        val facturadas = cotizaciones.map { it.cotizacion }.filter {
+            it.estado == EstadoCotizacion.FACTURADA &&
+                estadosAntes[it.id].let { antes -> antes == EstadoCotizacion.ACEPTADA || antes == EstadoCotizacion.ENVIADA }
+        }
+        return ResultadoSincronizacion(listasParaEnviar, respondidas, facturadas)
     }
 }

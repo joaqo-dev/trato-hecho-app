@@ -19,7 +19,7 @@ import retrofit2.http.PUT
 import retrofit2.http.Path
 
 // API REST de la plataforma Trato Hecho (la misma que usa la web).
-// En este proyecto la responde FakeApiInterceptor. La empresa se obtiene del token.
+// La responde el servidor de la carpeta backend/ (expuesto con ngrok). La empresa se obtiene del token.
 interface TratoHechoApi {
 
     @POST("auth/login")
@@ -91,8 +91,4 @@ interface TratoHechoApi {
 
     @PUT("cotizaciones/{id}")
     suspend fun guardarCotizacion(@Path("id") id: String, @Body cotizacion: CotizacionConItems): CotizacionConItems
-
-    // Solo para la demo: simula que el cliente respondió en la página pública
-    @POST("cotizaciones/{id}/simular-respuesta")
-    suspend fun simularRespuesta(@Path("id") id: String): CotizacionConItems
 }

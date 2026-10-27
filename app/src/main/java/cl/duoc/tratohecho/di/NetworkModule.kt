@@ -1,12 +1,10 @@
 package cl.duoc.tratohecho.di
 
+import cl.duoc.tratohecho.BuildConfig
 import cl.duoc.tratohecho.data.local.SesionDataStore
 import cl.duoc.tratohecho.data.remote.AuthInterceptor
 import cl.duoc.tratohecho.data.remote.IndicadoresApi
 import cl.duoc.tratohecho.data.remote.TratoHechoApi
-import cl.duoc.tratohecho.data.remote.fake.FakeApiInterceptor
-import cl.duoc.tratohecho.data.remote.fake.ServidorSimulado
-import cl.duoc.tratohecho.nativo.MonitorRed
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -21,23 +19,24 @@ import javax.inject.Singleton
 @InstallIn(SingletonComponent::class)
 object NetworkModule {
 
-    // URL de la API de Trato Hecho. Las peticiones las responde FakeApiInterceptor (API simulada).
-    private const val URL_TRATO_HECHO = "https://api.tratohecho.cl/v1/"
+    // URL del servidor de Trato Hecho (carpeta backend/). Se configura en local.properties
+    // con tratohecho.api.url (ej: la URL de ngrok); ver app/build.gradle.kts.
     private const val URL_INDICADORES = "https://findic.cl/"
 
     @Provides
     @Singleton
-    fun provideTratoHechoApi(
-        sesionDataStore: SesionDataStore,
-        servidor: ServidorSimulado,
-        monitorRed: MonitorRed
-    ): TratoHechoApi {
+    fun provideTratoHechoApi(sesionDataStore: SesionDataStore): TratoHechoApi {
         val cliente = OkHttpClient.Builder()
+            .connectTimeout(10, TimeUnit.SECONDS)
+            .readTimeout(15, TimeUnit.SECONDS)
             .addInterceptor(AuthInterceptor(sesionDataStore))
-            .addInterceptor(FakeApiInterceptor(servidor, monitorRed))
+            // ngrok muestra una página de advertencia a los navegadores; este encabezado la omite
+            .addInterceptor { chain ->
+                chain.proceed(chain.request().newBuilder().header("ngrok-skip-browser-warning", "true").build())
+            }
             .build()
         return Retrofit.Builder()
-            .baseUrl(URL_TRATO_HECHO)
+            .baseUrl(BuildConfig.URL_API)
             .client(cliente)
             .addConverterFactory(GsonConverterFactory.create())
             .build()

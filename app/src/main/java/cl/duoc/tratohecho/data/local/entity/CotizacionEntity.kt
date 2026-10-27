@@ -31,6 +31,7 @@ data class CotizacionEntity(
     val fechaEnvio: Long? = null,
     val fechaVencimiento: Long? = null,
     val fechaRespuesta: Long? = null,
+    val fechaFacturacion: Long? = null,  // la empresa registró la factura (desde la plataforma web)
     val pendienteSync: Boolean = false,
     // true = el vendedor presionó "Enviar" sin conexión y quedó en cola
     val envioPendiente: Boolean = false

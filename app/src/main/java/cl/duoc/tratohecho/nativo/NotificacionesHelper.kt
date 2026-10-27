@@ -20,7 +20,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 // Recurso nativo: notificaciones del sistema.
-// Avisa cuando una cotización en cola quedó lista para enviar y cuando un cliente responde.
+// Avisa cuando una cotización en cola quedó lista para enviar, cuando un cliente responde y cuando se factura.
 @Singleton
 class NotificacionesHelper @Inject constructor(
     @ApplicationContext private val context: Context
@@ -58,6 +58,15 @@ class NotificacionesHelper @Inject constructor(
             titulo = if (aceptada) "¡Trato hecho! ${cotizacion.numeroCompleto} fue aceptada"
             else "${cotizacion.numeroCompleto} fue rechazada",
             texto = "${cotizacion.clienteNombre} respondió tu cotización.",
+            abrirCorreo = false
+        )
+    }
+
+    fun notificarFacturada(cotizacion: CotizacionEntity) {
+        mostrar(
+            cotizacion = cotizacion,
+            titulo = "${cotizacion.numeroCompleto} fue facturada",
+            texto = "Se registró la factura de la cotización de ${cotizacion.clienteNombre}.",
             abrirCorreo = false
         )
     }

@@ -70,7 +70,7 @@ object HistorialCotizacion {
         }
 
         if (c.estado == EstadoCotizacion.FACTURADA) {
-            lista += EventoHistorial("Facturada", "Se registró la factura de esta cotización.", null, TipoEvento.HECHO)
+            lista += EventoHistorial("Facturada", "Se registró la factura de esta cotización.", c.fechaFacturacion, TipoEvento.HECHO)
         }
         if (c.estado == EstadoCotizacion.ENVIADA) {
             lista += EventoHistorial(

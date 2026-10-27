@@ -1,21 +1,21 @@
-package cl.duoc.tratohecho.data.remote.fake
+package cl.duoc.tratohecho.servidor.datos
 
-import cl.duoc.tratohecho.data.local.entity.ClienteConContactos
-import cl.duoc.tratohecho.data.local.entity.ClienteEntity
-import cl.duoc.tratohecho.data.local.entity.ContactoEntity
-import cl.duoc.tratohecho.data.local.entity.CotizacionConItems
-import cl.duoc.tratohecho.data.local.entity.CotizacionEntity
-import cl.duoc.tratohecho.data.local.entity.EmpresaEntity
-import cl.duoc.tratohecho.data.local.entity.ImpuestoEntity
-import cl.duoc.tratohecho.data.local.entity.ItemCotizacionEntity
-import cl.duoc.tratohecho.data.local.entity.ProductoEntity
-import cl.duoc.tratohecho.data.local.entity.UnidadEntity
-import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
-import cl.duoc.tratohecho.domain.CalculadoraCotizacion
-import cl.duoc.tratohecho.domain.model.EstadoCotizacion
-import cl.duoc.tratohecho.domain.model.Moneda
-import cl.duoc.tratohecho.domain.model.Rol
-import cl.duoc.tratohecho.domain.model.TipoDescuento
+import cl.duoc.tratohecho.servidor.modelo.ClienteConContactos
+import cl.duoc.tratohecho.servidor.modelo.ClienteEntity
+import cl.duoc.tratohecho.servidor.modelo.ContactoEntity
+import cl.duoc.tratohecho.servidor.modelo.CotizacionConItems
+import cl.duoc.tratohecho.servidor.modelo.CotizacionEntity
+import cl.duoc.tratohecho.servidor.modelo.EmpresaEntity
+import cl.duoc.tratohecho.servidor.modelo.ImpuestoEntity
+import cl.duoc.tratohecho.servidor.modelo.ItemCotizacionEntity
+import cl.duoc.tratohecho.servidor.modelo.ProductoEntity
+import cl.duoc.tratohecho.servidor.modelo.UnidadEntity
+import cl.duoc.tratohecho.servidor.modelo.UsuarioEntity
+import cl.duoc.tratohecho.servidor.dominio.CalculadoraCotizacion
+import cl.duoc.tratohecho.servidor.modelo.EstadoCotizacion
+import cl.duoc.tratohecho.servidor.modelo.Moneda
+import cl.duoc.tratohecho.servidor.modelo.Rol
+import cl.duoc.tratohecho.servidor.modelo.TipoDescuento
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -28,7 +28,7 @@ object DatosSemilla {
     private const val DIA = 24L * 60 * 60 * 1000
 
     fun crear(ahora: Long): BaseDatosServidor {
-        val bd = BaseDatosServidor(fechaSemilla = ahora)
+        val bd = BaseDatosServidor()
         cargarConstructoraAndes(bd, ahora)
         cargarClimatizaSur(bd, ahora)
         return bd

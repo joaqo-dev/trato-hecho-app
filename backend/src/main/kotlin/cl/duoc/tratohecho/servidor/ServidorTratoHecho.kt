@@ -1,42 +1,47 @@
-package cl.duoc.tratohecho.data.remote.fake
+package cl.duoc.tratohecho.servidor
 
-import android.content.Context
-import cl.duoc.tratohecho.data.local.entity.ClienteConContactos
-import cl.duoc.tratohecho.data.local.entity.CotizacionConItems
-import cl.duoc.tratohecho.data.local.entity.EmpresaEntity
-import cl.duoc.tratohecho.data.local.entity.ImpuestoEntity
-import cl.duoc.tratohecho.data.local.entity.ProductoEntity
-import cl.duoc.tratohecho.data.local.entity.UnidadEntity
-import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
-import cl.duoc.tratohecho.data.remote.dto.LoginRequest
-import cl.duoc.tratohecho.data.remote.dto.LoginResponse
-import cl.duoc.tratohecho.data.remote.dto.ReasignarClienteRequest
-import cl.duoc.tratohecho.data.remote.dto.UsuarioRequest
-import cl.duoc.tratohecho.domain.model.EstadoCotizacion
-import cl.duoc.tratohecho.domain.model.Rol
+import cl.duoc.tratohecho.servidor.datos.AlmacenJdbc
+import cl.duoc.tratohecho.servidor.datos.BaseDatosServidor
+import cl.duoc.tratohecho.servidor.datos.DatosSemilla
+import cl.duoc.tratohecho.servidor.datos.UsuarioServidor
+import cl.duoc.tratohecho.servidor.modelo.ClienteConContactos
+import cl.duoc.tratohecho.servidor.modelo.CotizacionConItems
+import cl.duoc.tratohecho.servidor.modelo.CotizacionEntity
+import cl.duoc.tratohecho.servidor.modelo.EmpresaEntity
+import cl.duoc.tratohecho.servidor.modelo.EstadoCotizacion
+import cl.duoc.tratohecho.servidor.modelo.ImpuestoEntity
+import cl.duoc.tratohecho.servidor.modelo.LoginRequest
+import cl.duoc.tratohecho.servidor.modelo.LoginResponse
+import cl.duoc.tratohecho.servidor.modelo.ProductoEntity
+import cl.duoc.tratohecho.servidor.modelo.ReasignarClienteRequest
+import cl.duoc.tratohecho.servidor.modelo.Rol
+import cl.duoc.tratohecho.servidor.modelo.UnidadEntity
+import cl.duoc.tratohecho.servidor.modelo.UsuarioEntity
+import cl.duoc.tratohecho.servidor.modelo.UsuarioRequest
 import com.google.gson.Gson
-import dagger.hilt.android.qualifiers.ApplicationContext
-import java.io.File
-import javax.inject.Inject
-import javax.inject.Singleton
-import kotlin.random.Random
+import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 // Error que el servidor devuelve como respuesta HTTP (ej: 401, 403, 404)
 class ErrorServidor(val codigo: Int, mensaje: String) : Exception(mensaje)
 
-// Simula el backend de Trato Hecho. Guarda sus datos en un archivo JSON para que
-// sobrevivan al cerrar la app. Aplica las reglas del servidor:
+// Backend de Trato Hecho. Aplica las reglas del servidor:
 // - Cada usuario solo ve los datos de su empresa (multi-tenant).
 // - Un vendedor solo ve sus clientes y cotizaciones; supervisor y administrador ven todo.
 // - Asigna el número correlativo de cada cotización.
-// - Cambia el estado de las cotizaciones enviadas (respuesta del cliente y vencimiento).
-@Singleton
-class ServidorSimulado @Inject constructor(
-    @ApplicationContext context: Context
-) {
+// - Marca como vencidas las cotizaciones enviadas que pasaron su validez.
+// La respuesta del cliente y la facturación se registran desde el panel web (ver PanelRutas).
+class ServidorTratoHecho(private val almacen: AlmacenJdbc) {
+
     private val gson = Gson()
-    private val archivo = File(context.filesDir, "servidor_simulado_v3.json")
-    private val bd: BaseDatosServidor = cargar()
+    private val bd: BaseDatosServidor = almacen.cargar()
+        ?: DatosSemilla.crear(System.currentTimeMillis()).also { almacen.guardar(it) }
+
+    // Sesiones abiertas: token aleatorio → id del usuario (se guardan en la base para sobrevivir reinicios)
+    private val sesiones = ConcurrentHashMap(almacen.cargarSesiones())
+
+    // Última vez que cada usuario habló con la API (lo muestra el panel para ver quién está conectado)
+    private val ultimaActividad = ConcurrentHashMap<String, Long>()
 
     @Synchronized
     fun atender(metodo: String, ruta: List<String>, cuerpo: String?, token: String?): Any? {
@@ -44,6 +49,7 @@ class ServidorSimulado @Inject constructor(
             return login(gson.fromJson(cuerpo, LoginRequest::class.java))
         }
         val usuario = usuarioDesdeToken(token)
+        ultimaActividad[usuario.id] = System.currentTimeMillis()
         val resultado: Any? = when (ruta.firstOrNull()) {
             "empresa" -> empresa(metodo, cuerpo, usuario)
             "usuarios" -> if (ruta.getOrNull(2) == "traspasar-clientes") traspasarClientes(ruta[1], cuerpo, usuario)
@@ -54,7 +60,7 @@ class ServidorSimulado @Inject constructor(
             "productos" -> catalogo(metodo, ruta.getOrNull(1), cuerpo, usuario, bd.productos, ProductoEntity::class.java) { it.id }
             "clientes" -> if (ruta.getOrNull(2) == "reasignar") reasignarCliente(ruta[1], cuerpo, usuario)
             else clientes(metodo, ruta.getOrNull(1), cuerpo, usuario)
-            "cotizaciones" -> cotizaciones(metodo, ruta.getOrNull(1), ruta.getOrNull(2), cuerpo, usuario)
+            "cotizaciones" -> cotizaciones(metodo, ruta.getOrNull(1), cuerpo, usuario)
             else -> throw ErrorServidor(404, "Ruta no encontrada")
         }
         if (metodo != "GET") guardar()
@@ -69,11 +75,15 @@ class ServidorSimulado @Inject constructor(
         } ?: throw ErrorServidor(401, "Correo o clave incorrectos")
         if (!encontrado.usuario.activo) throw ErrorServidor(403, "Tu usuario está desactivado. Contacta al administrador.")
         val empresa = bd.empresas.first { it.id == encontrado.usuario.empresaId }
-        return LoginResponse(token = "token-${encontrado.usuario.id}", usuario = encontrado.usuario, empresa = empresa)
+        ultimaActividad[encontrado.usuario.id] = System.currentTimeMillis()
+        val token = UUID.randomUUID().toString() + UUID.randomUUID().toString().replace("-", "")
+        sesiones[token] = encontrado.usuario.id
+        almacen.guardarSesion(token, encontrado.usuario.id)
+        return LoginResponse(token = token, usuario = encontrado.usuario, empresa = empresa)
     }
 
     private fun usuarioDesdeToken(token: String?): UsuarioEntity {
-        val id = token?.removePrefix("Bearer ")?.removePrefix("token-")
+        val id = token?.removePrefix("Bearer ")?.let { sesiones[it] }
         val usuario = bd.usuarios.find { it.usuario.id == id }?.usuario
             ?: throw ErrorServidor(401, "Sesión no válida")
         if (!usuario.activo) throw ErrorServidor(403, "Tu usuario está desactivado")
@@ -269,13 +279,11 @@ class ServidorSimulado @Inject constructor(
 
     // ---------------- Cotizaciones ----------------
 
-    private fun cotizaciones(metodo: String, id: String?, accion: String?, cuerpo: String?, usuario: UsuarioEntity): Any? {
-        actualizarEstadosAutomaticos()
-        when {
-            metodo == "GET" ->
-                return bd.cotizaciones.filter { puedeVer(usuario, it.cotizacion.empresaId, it.cotizacion.vendedorId) }
-            metodo == "PUT" -> return guardarCotizacion(id!!, gson.fromJson(cuerpo, CotizacionConItems::class.java), usuario)
-            metodo == "POST" && accion == "simular-respuesta" -> return simularRespuesta(id!!, usuario)
+    private fun cotizaciones(metodo: String, id: String?, cuerpo: String?, usuario: UsuarioEntity): Any? {
+        marcarVencidas()
+        when (metodo) {
+            "GET" -> return bd.cotizaciones.filter { puedeVer(usuario, it.cotizacion.empresaId, it.cotizacion.vendedorId) }
+            "PUT" -> return guardarCotizacion(id!!, gson.fromJson(cuerpo, CotizacionConItems::class.java), usuario)
         }
         throw ErrorServidor(405, "Método no permitido")
     }
@@ -291,7 +299,9 @@ class ServidorSimulado @Inject constructor(
         // Una cotización ya enviada no cambia su contenido: solo puede anularse o ser reemplazada
         if (existente != null && existente.cotizacion.estado != EstadoCotizacion.BORRADOR) {
             val permitido = nueva.estado == EstadoCotizacion.ANULADA || nueva.estado == EstadoCotizacion.REEMPLAZADA
-            if (!permitido) return existente
+            // Si el cliente la aceptó mientras el vendedor la anulaba sin señal, gana la aceptación
+            val yaAceptada = nueva.estado == EstadoCotizacion.ANULADA && existente.cotizacion.estado in ESTADOS_ACEPTADOS
+            if (!permitido || yaAceptada) return existente
             val actualizada = existente.copy(cotizacion = existente.cotizacion.copy(estado = nueva.estado))
             bd.cotizaciones[indice] = actualizada
             return actualizada
@@ -333,74 +343,113 @@ class ServidorSimulado @Inject constructor(
         return guardada
     }
 
-    private fun simularRespuesta(id: String, usuario: UsuarioEntity): CotizacionConItems {
-        val indice = bd.cotizaciones.indexOfFirst { it.cotizacion.id == id }
-        val actual = bd.cotizaciones.getOrNull(indice) ?: throw ErrorServidor(404, "Cotización no encontrada")
-        if (!puedeVer(usuario, actual.cotizacion.empresaId, actual.cotizacion.vendedorId)) {
-            throw ErrorServidor(403, "No tienes permiso sobre esta cotización")
-        }
-        if (actual.cotizacion.estado != EstadoCotizacion.ENVIADA) {
-            throw ErrorServidor(409, "Solo una cotización enviada puede recibir respuesta")
-        }
-        val respondida = actual.copy(cotizacion = responder(actual.cotizacion))
-        bd.cotizaciones[indice] = respondida
-        return respondida
-    }
-
-    // El cliente responde en la página pública (70% acepta, 30% rechaza)
-    private fun responder(cotizacion: cl.duoc.tratohecho.data.local.entity.CotizacionEntity) =
-        cotizacion.copy(
-            estado = if (Random.nextInt(100) < 70) EstadoCotizacion.ACEPTADA else EstadoCotizacion.RECHAZADA,
-            fechaRespuesta = System.currentTimeMillis()
-        )
-
-    // Simula lo que ocurre en la plataforma mientras la app no está mirando:
-    // - las enviadas que pasaron su fecha de validez quedan vencidas
-    // - las enviadas desde la app reciben respuesta del cliente después de unos minutos
-    private fun actualizarEstadosAutomaticos() {
+    // Las enviadas que pasaron su fecha de validez sin respuesta quedan vencidas
+    private fun marcarVencidas() {
         val ahora = System.currentTimeMillis()
         var huboCambios = false
         bd.cotizaciones.forEachIndexed { i, item ->
             val cot = item.cotizacion
-            if (cot.estado != EstadoCotizacion.ENVIADA) return@forEachIndexed
-            val envio = cot.fechaEnvio ?: return@forEachIndexed
-            val nuevo = when {
-                cot.fechaVencimiento != null && ahora > cot.fechaVencimiento ->
-                    cot.copy(estado = EstadoCotizacion.VENCIDA)
-                envio > bd.fechaSemilla && ahora - envio > TIEMPO_RESPUESTA_CLIENTE ->
-                    responder(cot)
-                else -> null
-            }
-            if (nuevo != null) {
-                bd.cotizaciones[i] = item.copy(cotizacion = nuevo)
+            if (cot.estado == EstadoCotizacion.ENVIADA && cot.fechaVencimiento != null && ahora > cot.fechaVencimiento) {
+                bd.cotizaciones[i] = item.copy(cotizacion = cot.copy(estado = EstadoCotizacion.VENCIDA))
                 huboCambios = true
             }
         }
         if (huboCambios) guardar()
     }
 
-    // ---------------- Persistencia del servidor ----------------
+    // ---------------- Panel web (simulación del cliente y de facturación) ----------------
 
-    private fun cargar(): BaseDatosServidor {
-        if (archivo.exists()) {
-            try {
-                return gson.fromJson(archivo.readText(), BaseDatosServidor::class.java)
-            } catch (e: Exception) {
-                // Si el archivo está dañado se vuelve a crear con los datos de prueba
-            }
+    @Synchronized
+    fun panelEmpresas(): List<Map<String, Any>> {
+        marcarVencidas()
+        return bd.empresas.map { empresa ->
+            val cotizaciones = bd.cotizaciones.filter { it.cotizacion.empresaId == empresa.id }
+            mapOf(
+                "empresa" to empresa,
+                "clientes" to bd.clientes.count { it.cliente.empresaId == empresa.id },
+                "cotizaciones" to cotizaciones.size,
+                "porResponder" to cotizaciones.count { it.cotizacion.estado == EstadoCotizacion.ENVIADA },
+                "porFacturar" to cotizaciones.count { it.cotizacion.estado == EstadoCotizacion.ACEPTADA }
+            )
         }
-        return DatosSemilla.crear(System.currentTimeMillis()).also { guardarEn(it) }
     }
 
-    private fun guardar() = guardarEn(bd)
-
-    private fun guardarEn(datos: BaseDatosServidor) {
-        archivo.writeText(gson.toJson(datos))
+    @Synchronized
+    fun panelEmpresa(empresaId: String): Map<String, Any> {
+        marcarVencidas()
+        val empresa = bd.empresas.find { it.id == empresaId } ?: throw ErrorServidor(404, "Empresa no encontrada")
+        return mapOf(
+            "empresa" to empresa,
+            "usuarios" to bd.usuarios.filter { it.usuario.empresaId == empresaId }.map {
+                mapOf("usuario" to it.usuario, "ultimaActividad" to ultimaActividad[it.usuario.id])
+            },
+            "clientes" to bd.clientes.filter { it.cliente.empresaId == empresaId }.map { it.cliente },
+            "cotizaciones" to bd.cotizaciones.filter { it.cotizacion.empresaId == empresaId }
+                .sortedByDescending { it.cotizacion.fechaEnvio ?: it.cotizacion.fechaCreacion },
+            "ahora" to System.currentTimeMillis()
+        )
     }
+
+    // El cliente acepta o rechaza en la página pública de Trato Hecho
+    @Synchronized
+    fun responderCotizacion(id: String, aceptada: Boolean): CotizacionConItems =
+        cambiarEstado(id, EstadoCotizacion.ENVIADA, "Solo una cotización enviada puede recibir respuesta") {
+            it.copy(
+                estado = if (aceptada) EstadoCotizacion.ACEPTADA else EstadoCotizacion.RECHAZADA,
+                fechaRespuesta = System.currentTimeMillis()
+            )
+        }
+
+    // La empresa registra la factura de una cotización aceptada
+    @Synchronized
+    fun facturarCotizacion(id: String): CotizacionConItems =
+        cambiarEstado(id, EstadoCotizacion.ACEPTADA, "Solo una cotización aceptada se puede facturar") {
+            it.copy(estado = EstadoCotizacion.FACTURADA, fechaFacturacion = System.currentTimeMillis())
+        }
+
+    private fun cambiarEstado(
+        id: String,
+        estadoRequerido: EstadoCotizacion,
+        mensajeError: String,
+        cambio: (CotizacionEntity) -> CotizacionEntity
+    ): CotizacionConItems {
+        marcarVencidas()
+        val indice = bd.cotizaciones.indexOfFirst { it.cotizacion.id == id }
+        val actual = bd.cotizaciones.getOrNull(indice) ?: throw ErrorServidor(404, "Cotización no encontrada")
+        if (actual.cotizacion.estado != estadoRequerido) throw ErrorServidor(409, mensajeError)
+        val nueva = actual.copy(cotizacion = cambio(actual.cotizacion))
+        bd.cotizaciones[indice] = nueva
+        guardar()
+        return nueva
+    }
+
+    // Vuelve a los datos de prueba iniciales (botón del panel)
+    @Synchronized
+    fun reiniciarDatos() {
+        val semilla = DatosSemilla.crear(System.currentTimeMillis())
+        bd.empresas.apply { clear(); addAll(semilla.empresas) }
+        bd.usuarios.apply { clear(); addAll(semilla.usuarios) }
+        bd.unidades.apply { clear(); addAll(semilla.unidades) }
+        bd.impuestos.apply { clear(); addAll(semilla.impuestos) }
+        bd.productos.apply { clear(); addAll(semilla.productos) }
+        bd.clientes.apply { clear(); addAll(semilla.clientes) }
+        bd.cotizaciones.apply { clear(); addAll(semilla.cotizaciones) }
+        bd.correlativos.apply { clear(); putAll(semilla.correlativos) }
+        guardar()
+        // Las sesiones abiertas dejan de valer: la app vuelve al login
+        sesiones.clear()
+        almacen.borrarSesiones()
+    }
+
+    // Nombre del usuario dueño de un token (para el registro de peticiones)
+    fun usuarioDeToken(token: String?): String? = token?.removePrefix("Bearer ")?.let { sesiones[it] }
+
+    fun baseDisponible(): Boolean = almacen.disponible()
+
+    private fun guardar() = almacen.guardar(bd)
 
     companion object {
         private const val DIA = 24L * 60 * 60 * 1000
-        // Tiempo que "demora" el cliente en responder una cotización enviada desde la app
-        const val TIEMPO_RESPUESTA_CLIENTE = 2L * 60 * 1000
+        private val ESTADOS_ACEPTADOS = setOf(EstadoCotizacion.ACEPTADA, EstadoCotizacion.FACTURADA)
     }
 }

@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.data.remote
 
+import android.util.Log
 import cl.duoc.tratohecho.data.remote.dto.ErrorResponse
 import com.google.gson.Gson
 import retrofit2.HttpException
@@ -25,5 +26,6 @@ suspend fun <T> llamarApi(bloque: suspend () -> T): Result<T> =
     try {
         Result.success(bloque())
     } catch (e: Exception) {
+        Log.w("TratoHechoApi", "Falló la llamada a la API", e)
         Result.failure(Exception(mensajeDeError(e), e))
     }

@@ -41,7 +41,7 @@ object ProgresoCotizacion {
         }
 
         val facturada = if (c.estado == EstadoCotizacion.FACTURADA) {
-            PasoTracker("Facturada", null, EstadoPaso.COMPLETADO)
+            PasoTracker("Facturada", c.fechaFacturacion, EstadoPaso.COMPLETADO)
         } else {
             PasoTracker("Facturada", null, EstadoPaso.PENDIENTE)
         }

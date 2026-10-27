@@ -17,7 +17,7 @@ Este documento explica el proyecto completo: el caso, los perfiles, las funciona
 4. [Arquitectura](#4-arquitectura)
 5. [Estructura de carpetas](#5-estructura-de-carpetas)
 6. [Pantallas y archivos detrás de cada una](#6-pantallas-y-archivos-detrás-de-cada-una)
-7. [API simulada y API real](#7-api-simulada-y-api-real)
+7. [Servidor, panel web y API real](#7-servidor-panel-web-y-api-real)
 8. [Funcionamiento sin conexión](#8-funcionamiento-sin-conexión)
 9. [Reglas de negocio](#9-reglas-de-negocio)
 10. [Validaciones de formularios](#10-validaciones-de-formularios)
@@ -87,7 +87,7 @@ Este documento explica el proyecto completo: el caso, los perfiles, las funciona
 | **Clientes** | Lista con buscador. Formulario con RUT que se formatea mientras se escribe (`76.123.456-0`) y valida el dígito verificador. Contactos del cliente. Permisos según el rol (ver sección 2). Baja lógica y reactivación. |
 | **Catálogo** | Productos, unidades e impuestos. El administrador los mantiene; vendedor y supervisor ven solo los productos. |
 | **Ajustes** | Usuarios (crear, editar rol y clave, dar de baja con traspaso de clientes) y datos de la empresa como emisor (aparecen en el PDF). |
-| **Sin conexión** | Todo se lee del teléfono; lo creado offline queda pendiente y se sincroniza solo al volver la señal. Los envíos quedan en cola y avisan con una notificación. |
+| **Sin conexión** | Todo se lee del teléfono; lo creado offline queda pendiente y se sincroniza solo al volver la señal (y cada 15 segundos). Los envíos quedan en cola y avisan con una notificación. |
 
 ---
 
@@ -165,8 +165,7 @@ Paquete base `cl.duoc.tratohecho` (`app/src/main/java/cl/duoc/tratohecho/`).
 ├── TratoHechoApp.kt          Arranca Hilt, notificaciones, monitor de red y sincronización
 ├── data/
 │   ├── local/                Room (AppDatabase, entity/, dao/) y DataStore (sesión, indicadores)
-│   ├── remote/               Retrofit: TratoHechoApi, IndicadoresApi, interceptores, DTOs
-│   │   └── fake/             API simulada: FakeApiInterceptor, ServidorSimulado, DatosSemilla
+│   ├── remote/               Retrofit: TratoHechoApi, IndicadoresApi, AuthInterceptor, DTOs
 │   ├── repository/           Un repositorio por módulo
 │   └── sync/                 GestorSincronizacion
 ├── domain/                   CalculadoraCotizacion, CalculadoraIndicadores, ProgresoCotizacion, HistorialCotizacion
@@ -202,7 +201,7 @@ Paquete base `cl.duoc.tratohecho` (`app/src/main/java/cl/duoc/tratohecho/`).
 | `ClienteEntity` | RUT, razón social, giro, dirección, correo, teléfono, vendedor a cargo, activo, pendiente de sincronizar |
 | `ContactoEntity` | Contactos del cliente |
 | `UnidadEntity`, `ImpuestoEntity`, `ProductoEntity` | Catálogo |
-| `CotizacionEntity` | Número, versión, cliente, vendedor, moneda, tipo de cambio, validez, descuento global, notas, estado, total, fechas, pendiente y en cola |
+| `CotizacionEntity` | Número, versión, cliente, vendedor, moneda, tipo de cambio, validez, descuento global, notas, estado, total, fechas (creación, envío, vencimiento, respuesta y facturación), pendiente y en cola |
 | `ItemCotizacionEntity` | Líneas de la cotización |
 
 Los DAO (`ClienteDao`, `CotizacionDao`, `CatalogoDao`, `UsuarioDao`, `EmpresaDao`) devuelven `Flow`, así las pantallas se actualizan solas cuando cambian los datos.
@@ -251,19 +250,33 @@ Cada pantalla sigue la misma cadena: **Pantalla** (dibuja) → **ViewModel** (es
 
 ---
 
-## 7. API simulada y API real
+## 7. Servidor, panel web y API real
 
-### API de Trato Hecho (simulada)
+### Servidor de Trato Hecho (`backend/`)
 
-La API real no existe para el curso, así que se simuló dentro de la app sin cambiar la forma de trabajar: la app usa **Retrofit** normalmente contra `https://api.tratohecho.cl/v1/`, pero un **interceptor de OkHttp** (`FakeApiInterceptor`) responde cada petición antes de que salga a internet.
+La API de Trato Hecho no existe para el curso, así que se construyó un **servidor propio** en la carpeta `backend/` (Kotlin + **Ktor** + **SQLite**) y se publica en internet con **ngrok**. La app lo consume con **Retrofit** como a cualquier API real: hay demoras reales, errores reales sin señal y códigos HTTP reales (200, 401, 403, 404, 409).
 
 ```
-Repositorio → Retrofit (TratoHechoApi) → AuthInterceptor (agrega el token)
-           → FakeApiInterceptor (¿hay señal? demora 500 ms)
-           → ServidorSimulado (aplica reglas) → JSON + código HTTP
+App Android ──┐
+              ├──► https://<dominio>.ngrok-free.dev ──► servidor en el computador (puerto 8080)
+Navegador ────┘                                        ├─ /v1/...  API REST de la app
+                                                       ├─ /panel   panel web
+                                                       └─ backend/tratohecho.db (SQLite)
+
+Repositorio → Retrofit (TratoHechoApi) → AuthInterceptor (agrega el token) → internet (ngrok) → ServidorTratoHecho
 ```
 
-Así hay demoras reales (ruedas de carga), errores reales sin señal y códigos HTTP reales (200, 401, 403, 404, 409). Los datos del servidor se guardan en un archivo JSON dentro del teléfono y la primera vez se cargan desde `DatosSemilla` (2 empresas de prueba).
+| Archivo (`backend/src/main/kotlin/…/servidor/`) | Qué hace |
+|---|---|
+| `Main.kt` | Arranca Ktor, recibe las rutas `/v1/...` y muestra cada petición en la terminal |
+| `ServidorTratoHecho.kt` | Reglas del servidor (permisos, multi-tenant, correlativo, vencimiento) y acciones del panel |
+| `datos/AlmacenSqlite.kt` | Guarda los datos en SQLite: una tabla por entidad con el registro en JSON |
+| `datos/DatosSemilla.kt` | Datos de prueba (2 empresas) que se cargan la primera vez |
+| `modelo/Modelos.kt` | Los mismos modelos de la app, sin anotaciones de Room |
+| `panel/PanelRutas.kt` y `resources/panel/index.html` | Panel web |
+| `backend/iniciar.sh` | Levanta el servidor y ngrok con un solo comando |
+
+La URL del servidor se configura en `local.properties` (`tratohecho.api.url`) y llega a la app por `BuildConfig.URL_API`. A cada petición se le agrega el encabezado `ngrok-skip-browser-warning` para saltar la página de aviso de ngrok.
 
 | Endpoint | Qué hace | Quién puede |
 |---|---|---|
@@ -276,7 +289,6 @@ Así hay demoras reales (ruedas de carga), errores reales sin señal y códigos 
 | `GET/PUT clientes` | Clientes con contactos | Ver: todos (vendedor solo los suyos) · Editar: admin; vendedor solo contacto |
 | `POST clientes/{id}/reasignar` | Cambia el vendedor a cargo | Admin |
 | `GET/PUT cotizaciones` | Cotizaciones con ítems | Vendedor (las suyas) y supervisor |
-| `POST cotizaciones/{id}/simular-respuesta` | Demo: el cliente responde | Vendedor y supervisor |
 
 Reglas del servidor:
 
@@ -284,8 +296,27 @@ Reglas del servidor:
 - asigna el correlativo `COT-0012` por empresa (offline la cotización usa `TMP-1234`);
 - una cotización enviada no cambia: solo se anula o se reemplaza por una nueva versión (`COT-0012 v2`);
 - marca como **Vencida** la que pasa su validez sin respuesta;
-- simula la página pública: 2 minutos después del envío la cotización queda **Aceptada** (70%) o **Rechazada** (30%);
+- si el cliente aceptó una cotización mientras el vendedor la anulaba sin señal, gana la aceptación;
 - nunca borra clientes ni usuarios, y no deja dar de baja a un vendedor con clientes sin reasignarlos.
+
+### Panel web (`/panel`)
+
+Simula lo que pasa **fuera de la app**, que el caso deja fuera del alcance: la página pública donde el cliente responde y el registro de la factura. Tiene su propio usuario (`panel@tratohecho.cl` / `Trato123`) y ve todas las empresas.
+
+- **Esperando respuesta del cliente:** botones *Aceptar* y *Rechazar* para cada cotización enviada.
+- **Aceptadas, por facturar:** botón *Facturar* (la cotización pasa a **Facturada** con su fecha).
+- **Usuarios y última conexión:** punto verde si la app de ese usuario habló con el servidor en los últimos 30 segundos; sirve para ver cuándo un teléfono quedó sin señal.
+- Tablas de todas las cotizaciones (con buscador y filtro por estado) y de los clientes.
+- **Reiniciar datos:** vuelve a los datos de prueba.
+- Se actualiza solo cada 3 segundos.
+
+| Ruta del panel | Qué hace |
+|---|---|
+| `POST panel/api/login` | Ingreso al panel |
+| `GET panel/api/empresas` y `GET panel/api/empresas/{id}` | Resumen y datos de cada empresa |
+| `POST panel/api/cotizaciones/{id}/aceptar` · `/rechazar` | El cliente responde |
+| `POST panel/api/cotizaciones/{id}/facturar` | La empresa factura |
+| `POST panel/api/reiniciar` | Vuelve a los datos de prueba |
 
 ### API real: dólar y UF
 
@@ -298,17 +329,18 @@ El valor del día se obtiene de la API pública **https://findic.cl/api/** (sin 
 - **Local primero:** todo lo que se ve sale de Room, por eso la app abre al instante aunque no haya internet.
 - Lo creado o editado offline queda marcado como **pendiente** (ícono de nube).
 - `MonitorRed` (ConnectivityManager) avisa cuando vuelve la señal y `GestorSincronizacion` sincroniza solo, incluso con la app en segundo plano.
+- Además, `GestorSincronizacion` consulta el servidor **cada 15 segundos** (sin mostrar el aviso de "sincronizando"), así las respuestas de los clientes y las facturas registradas en el panel llegan solas.
 
 | Funciona sin conexión | Requiere conexión |
 |---|---|
 | Ver lo descargado | Iniciar sesión |
 | Crear y editar clientes (admin) y su contacto (vendedor) | Mantener catálogo, usuarios y empresa |
 | Armar y editar borradores | Reasignar clientes y dar de baja vendedores |
-| "Enviar" una cotización (queda en cola) | Simular la respuesta del cliente |
+| "Enviar" una cotización (queda en cola) | Recibir respuestas de clientes y facturas |
 | Cotizar en USD/UF con el último valor guardado | |
 | Ver el PDF de una cotización emitida | |
 
-**Pasos de la sincronización:** sube clientes pendientes → sube cotizaciones pendientes (las que estaban en cola se envían y reciben su número) → baja empresa, catálogo, clientes, cotizaciones y usuarios → detecta respuestas nuevas y avisa con notificación → guarda el dólar y la UF del día.
+**Pasos de la sincronización:** sube clientes pendientes → sube cotizaciones pendientes (las que estaban en cola se envían y reciben su número) → baja empresa, catálogo, clientes, cotizaciones y usuarios → detecta respuestas y facturas nuevas y avisa con notificación → guarda el dólar y la UF del día (este último paso no se hace en la consulta de cada 15 segundos).
 
 **Cola de envío:** sin señal la cotización queda "En cola" con número temporal. Al volver la señal se envía sola, recibe su número `COT-xxxx` y llega una notificación "lista para enviar" que abre el correo con el PDF.
 
@@ -323,9 +355,9 @@ El valor del día se obtiene de la API pública **https://findic.cl/api/** (sin 
 | **Borrador** | Se está armando; se puede editar |
 | **En cola** (marca) | Se envió sin señal; sale sola al volver la conexión |
 | **Enviada** | Espera respuesta del cliente |
-| **Aceptada** / **Rechazada** | El cliente respondió en la página pública |
+| **Aceptada** / **Rechazada** | El cliente respondió en la página pública (en el proyecto, desde el panel web) |
 | **Vencida** | Pasó la validez sin respuesta |
-| **Facturada** | Se facturó (el caso la nombra en 2.4, 3.1 y 4.1; el perfil de facturación es de la EFT) |
+| **Facturada** | Se facturó desde el panel web (el caso la nombra en 2.4, 3.1 y 4.1; el perfil de facturación es de la EFT) |
 | **Anulada** | Se canceló |
 | **Reemplazada** | Existe una versión más nueva |
 
@@ -377,20 +409,20 @@ Todas están en `utils/Validaciones.kt` y se ejecutan desde los ViewModel; la pa
 
 | Permiso | Para qué | Tipo |
 |---|---|---|
-| `INTERNET` | API simulada y findic.cl | Normal (se concede al instalar) |
+| `INTERNET` | Servidor de Trato Hecho y findic.cl | Normal (se concede al instalar) |
 | `ACCESS_NETWORK_STATE` | Saber si hay señal | Normal |
 | `POST_NOTIFICATIONS` | Notificaciones | Peligroso: en Android 13+ se pide en tiempo de ejecución |
 
 El permiso de notificaciones se solicita en `ui/screens/principal/PrincipalScreen.kt` con `rememberLauncherForActivityResult(RequestPermission())`. Si el usuario lo rechaza, la app sigue funcionando y lo explica.
 
-En el manifiesto también están el **FileProvider** (comparte el PDF sin exponer la ruta real del archivo) y `<queries>` (permite encontrar las apps de correo y el marcador).
+En el manifiesto también están `network_security_config.xml` (solo permite HTTP sin cifrar hacia el servidor local; con ngrok todo va por HTTPS), el **FileProvider** (comparte el PDF sin exponer la ruta real del archivo) y `<queries>` (permite encontrar las apps de correo y el marcador).
 
 ### Recursos usados (la pauta pide al menos 2)
 
 | Recurso | API de Android | Archivo | Uso |
 |---|---|---|---|
 | Estado de la red | `ConnectivityManager` | `nativo/MonitorRed.kt` | Aviso sin conexión y sincronización automática |
-| Notificaciones | `NotificationCompat`, `PendingIntent` | `nativo/NotificacionesHelper.kt` | "Lista para enviar" y "aceptada/rechazada" |
+| Notificaciones | `NotificationCompat`, `PendingIntent` | `nativo/NotificacionesHelper.kt` | "Lista para enviar", "aceptada/rechazada" y "facturada" |
 | Compartir por correo | `Intent.ACTION_SEND` + FileProvider | `nativo/CompartirHelper.kt` | Envío de la cotización con PDF |
 | Visor de archivos | `Intent.ACTION_VIEW` | `nativo/CompartirHelper.kt` | "Ver PDF" |
 | Teléfono y correo | `ACTION_DIAL`, `mailto` | `nativo/ContactoHelper.kt` | Contacto rápido (abre el marcador, no llama directo) |
@@ -467,9 +499,17 @@ Definido en `ui/theme/` (`Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`, `Movimie
 
 ## 15. Cómo ejecutar
 
-1. Abrir la carpeta `TratoHecho` en **Android Studio** y esperar la sincronización de Gradle.
-2. En **Device Manager** iniciar un emulador con Android 8.0 (API 26) o superior (recomendado: con Google Play, para tener Gmail).
-3. Elegir la configuración `app` y el emulador, y presionar **▶ Run**.
+**Una sola vez:** crear una cuenta en ngrok, instalarlo (`brew install ngrok`), guardar el token (`ngrok config add-authtoken <TOKEN>`) y agregar en `local.properties` la URL del dominio fijo gratuito:
+
+```
+tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/
+```
+
+**Cada vez:**
+
+1. Levantar el servidor y ngrok: `./backend/iniciar.sh <tu-dominio>.ngrok-free.dev` (dejar la terminal abierta).
+2. Abrir el panel en `https://<tu-dominio>.ngrok-free.dev/panel`.
+3. Abrir el proyecto en **Android Studio**, iniciar un emulador con Android 8.0 (API 26) o superior (recomendado: con Google Play, para tener Gmail) y presionar **▶ Run**.
 4. Ingresar con un usuario de prueba (todos con clave `Trato123`):
 
 | Empresa | Perfil | Correo |
@@ -483,9 +523,9 @@ Definido en `ui/theme/` (`Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`, `Movimie
 | Climatiza Sur Ltda. | Vendedor | tomas@climatiza.cl |
 | Climatiza Sur Ltda. | Vendedor | valentina@climatiza.cl |
 
-Para volver a los datos iniciales: Ajustes del teléfono → Apps → Trato Hecho → Almacenamiento → Borrar datos.
+Para volver a los datos iniciales: botón **Reiniciar datos** del panel y, en el teléfono, Ajustes → Apps → Trato Hecho → Almacenamiento → Borrar datos.
 
-**Probar sin conexión:** activar el modo avión, crear un cliente (como administrador) o enviar una cotización (como vendedor). Al desactivar el modo avión se sincroniza solo y llega una notificación.
+**Probar la sincronización híbrida:** activar el modo avión y enviar una cotización como vendedor (queda *En cola* con número `TMP-…`). Al desactivar el modo avión llega al panel con su número `COT-…` y aparece la notificación "lista para enviar". Luego, en el panel, *Aceptar* y *Facturar*: antes de 15 segundos llega cada notificación al teléfono.
 
 ---
 
@@ -503,8 +543,17 @@ En el ViewModel, usando `utils/Validaciones.kt`. La pantalla solo muestra el err
 **¿Qué guarda Room y qué guarda DataStore?**
 Room guarda datos con estructura y relaciones (clientes, contactos, catálogo, cotizaciones, ítems). DataStore guarda datos simples: la sesión y el último valor del dólar y la UF.
 
-**¿Cómo se simuló la API?**
-Con un interceptor de OkHttp (`FakeApiInterceptor`) que responde las peticiones de Retrofit con JSON, demora y códigos HTTP usando `ServidorSimulado`. Si existiera la API real, solo se quitaría el interceptor.
+**¿Cómo se reemplazó la API de Trato Hecho?**
+Con un servidor propio en `backend/` (Ktor + SQLite) que aplica las mismas reglas que tendría la plataforma, publicado en internet con ngrok. La app no sabe que es un servidor de prueba: si existiera la API real, solo se cambiaría la URL en `local.properties`.
+
+**¿Para qué sirve el panel web?**
+Para simular lo que el caso deja fuera de la app: el cliente que acepta o rechaza en la página pública y la empresa que factura. Así se puede probar el ciclo completo de la cotización y las notificaciones.
+
+**¿Cómo se entera la app de una respuesta o una factura?**
+`GestorSincronizacion` consulta el servidor cada 15 segundos y al volver la señal. Compara el estado de cada cotización antes y después, y si cambió a Aceptada, Rechazada o Facturada muestra una notificación.
+
+**¿Por qué ngrok y no la IP del computador?**
+ngrok da una URL pública con HTTPS, así la app funciona igual en el emulador y en un teléfono físico con datos móviles. Además, Android 17 bloquea por defecto la conexión de las apps a la red local.
 
 **¿Qué pasa si no hay internet?**
 La app sigue funcionando con los datos de Room. Lo nuevo queda pendiente y se sincroniza solo al volver la señal; los envíos quedan en cola y avisan con una notificación.

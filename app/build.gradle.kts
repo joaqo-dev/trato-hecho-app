@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -19,6 +21,15 @@ android {
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        // URL del servidor (backend/). Se cambia en local.properties con:
+        //   tratohecho.api.url=https://tu-dominio.ngrok-free.app/v1/
+        // Por defecto apunta al servidor local visto desde el emulador (10.0.2.2 = el computador).
+        val propiedades = Properties().apply {
+            rootProject.file("local.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+        }
+        val urlApi = propiedades.getProperty("tratohecho.api.url") ?: "http://10.0.2.2:8080/v1/"
+        buildConfigField("String", "URL_API", "\"$urlApi\"")
     }
 
     buildTypes {
@@ -34,6 +45,7 @@ android {
     }
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

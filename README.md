@@ -77,9 +77,8 @@ cl.duoc.tratohecho/
 ├── data/
 │   ├── local/          Room (entity/, dao/, AppDatabase) y DataStore (sesión, indicadores)
 │   ├── remote/         Retrofit: TratoHechoApi, IndicadoresApi, DTOs
-│   │   └── fake/       API simulada: FakeApiInterceptor, ServidorSimulado, DatosSemilla
 │   ├── repository/     Un repositorio por módulo (local primero, luego API)
-│   └── sync/           GestorSincronizacion (sube pendientes al volver la señal)
+│   └── sync/           GestorSincronizacion (al volver la señal y cada 15 s)
 ├── domain/             Reglas de negocio puras: CalculadoraCotizacion, CalculadoraIndicadores
 │   └── model/          Enums y modelos (Rol, EstadoCotizacion, Moneda, Sesion…)
 ├── di/                 Módulos de Hilt (base de datos y red)
@@ -93,18 +92,35 @@ cl.duoc.tratohecho/
 └── viewmodel/          Un ViewModel + UiState por pantalla
 ```
 
-### API simulada
+### Servidor (API) y panel web
 
-El caso indica que la app consume la API de Trato Hecho, que no está disponible. Para la evaluación se **simula
-dentro de la app**: Retrofit hace las peticiones normalmente y `FakeApiInterceptor` (OkHttp) las responde desde
-`ServidorSimulado`, con demora y códigos HTTP reales. El servidor simulado:
+La API de Trato Hecho la responde un servidor propio, en la carpeta [`backend/`](backend/) (Kotlin + Ktor + SQLite),
+que se publica en internet con **ngrok**. La app lo consume con Retrofit igual que a cualquier API real.
+
+```
+App Android ──┐
+              ├──► https://<dominio>.ngrok-free.dev ──► servidor en el computador (puerto 8080)
+Navegador ────┘                                        ├─ /v1/...  API REST de la app
+                                                       ├─ /panel   panel web
+                                                       └─ backend/tratohecho.db (SQLite)
+```
+
+El servidor:
 
 - Filtra todo por empresa (multi-tenant) y por rol.
 - Asigna el correlativo `COT-xxxx` por empresa.
 - Marca como **vencidas** las cotizaciones que pasaron su validez.
-- Simula la respuesta del cliente en la página pública: las cotizaciones enviadas desde la app se aceptan o
-  rechazan solas **2 minutos** después (también existe el botón *Simular respuesta del cliente* en el detalle).
-- Si el teléfono no tiene conexión, la petición falla igual que con una API real.
+- Si el cliente aceptó una cotización mientras el vendedor la anulaba sin señal, gana la aceptación.
+
+El **panel web** (`/panel`) simula lo que ocurre fuera de la app: ingresa con `panel@tratohecho.cl` / `Trato123`,
+elige la empresa y desde ahí:
+
+- **Acepta o rechaza** las cotizaciones enviadas (como el cliente en la página pública).
+- **Factura** las cotizaciones aceptadas (como la empresa).
+- Ve todas las cotizaciones y clientes, y la **última conexión** de cada usuario de la app.
+
+La app consulta el servidor cada **15 segundos**, así la respuesta del cliente o la factura le llegan sola con una
+notificación.
 
 El valor del **dólar y la UF** sí se obtiene de la API pública real **https://findic.cl** (sin clave). Cada valor obtenido se guarda: sin conexión se puede seguir cotizando en USD o UF con el último valor descargado, y la app lo advierte.
 
@@ -112,8 +128,8 @@ El valor del **dólar y la UF** sí se obtiene de la API pública real **https:/
 
 1. Clientes y cotizaciones se guardan primero en Room, marcados como *pendientes*.
 2. `MonitorRed` escucha la red con `ConnectivityManager` mientras el proceso de la app está vivo (también en segundo plano).
-3. Al volver la señal, `GestorSincronizacion` sube los pendientes, envía las cotizaciones en cola y baja los datos actualizados.
-4. Si una cotización en cola quedó lista, o un cliente respondió, se muestra una notificación.
+3. Al volver la señal (y cada 15 segundos), `GestorSincronizacion` sube los pendientes, envía las cotizaciones en cola y baja los datos actualizados.
+4. Si una cotización en cola quedó lista, un cliente respondió o se facturó, se muestra una notificación.
 
 ## Usuarios de prueba
 
@@ -134,23 +150,49 @@ Cada empresa solo ve su propia información. Los correos de clientes son de prue
 
 ## Cómo ejecutar
 
-1. Clonar el repositorio y abrir la carpeta `TratoHecho` en **Android Studio** (2026.1 o superior).
-2. Esperar la sincronización de Gradle (JDK 17+ incluido en Android Studio).
-3. Ejecutar la configuración `app` en un emulador o teléfono con **Android 8.0 (API 26)** o superior.
-   Para probar el envío por correo se recomienda un emulador con Google Play (Gmail instalado).
+### 1. Servidor + ngrok (una sola vez)
+
+1. Crear una cuenta gratis en [ngrok.com](https://ngrok.com), instalarlo (`brew install ngrok`) y guardar el token:
+   `ngrok config add-authtoken <TU_TOKEN>`.
+2. Copiar el dominio fijo gratuito desde *dashboard.ngrok.com → Domains*.
+3. Agregar la URL en `local.properties` (en la raíz del proyecto; no se sube a GitHub):
+   ```
+   tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/
+   ```
+
+### 2. Cada vez que se va a probar
+
+1. Levantar el servidor y ngrok (deja la terminal abierta; se detiene con `Ctrl+C`):
+   ```
+   ./backend/iniciar.sh <tu-dominio>.ngrok-free.dev
+   ```
+2. Abrir `https://<tu-dominio>.ngrok-free.dev/panel` en el navegador.
+3. Abrir el proyecto en **Android Studio** y ejecutar la configuración `app` en un emulador o teléfono con
+   **Android 8.0 (API 26)** o superior. Con ngrok también funciona en un teléfono físico con datos móviles.
 4. Ingresar con alguno de los usuarios de prueba.
 
-Para probar el modo sin conexión: activar el **modo avión** del emulador, crear un cliente o una cotización y
-presionar *Guardar y enviar*. Al desactivar el modo avión la cotización se sincroniza y llega la notificación.
+> Sin ngrok la app apunta a `http://10.0.2.2:8080/v1/` (el computador visto desde el emulador). En Android 17
+> el sistema bloquea por defecto la conexión de las apps a la red local, por eso se recomienda usar ngrok.
 
-Para volver a los datos iniciales: *Configuración del teléfono → Apps → Trato Hecho → Almacenamiento → Borrar datos*.
+### Probar la sincronización híbrida
+
+1. Activar el **modo avión** del emulador y, como vendedor, presionar *Guardar y enviar* en una cotización:
+   queda **En cola** con un número temporal (`TMP-1234`).
+2. Desactivar el modo avión: la cotización llega al panel con su número `COT-xxxx` y aparece la notificación
+   "lista para enviar".
+3. En el panel, **Aceptar** la cotización: antes de 15 segundos llega al teléfono "¡Trato hecho! … fue aceptada".
+4. En el panel, **Facturar**: llega "… fue facturada" y el tracker de la cotización queda completo.
+
+Para volver a los datos iniciales: botón **Reiniciar datos** del panel y luego, en el teléfono,
+*Configuración → Apps → Trato Hecho → Almacenamiento → Borrar datos*.
 
 ## Tecnologías
 
 Kotlin 2.2 · Jetpack Compose + Material 3 · Navigation Compose · ViewModel + StateFlow · Hilt · Room · DataStore ·
 Retrofit + OkHttp + Gson · PdfDocument · FileProvider · NotificationCompat · ConnectivityManager.
+Servidor: Ktor · SQLite · ngrok.
 
 ## Alcance
 
 No incluye la administración del SaaS (alta de empresas, cobro de suscripciones) ni la página pública donde el cliente
-acepta o rechaza la cotización, según las restricciones del caso. El perfil de facturación se desarrollará en la EFT.
+acepta o rechaza la cotización, según las restricciones del caso (el panel web solo la simula para probar la app). El perfil de facturación se desarrollará en la EFT.
