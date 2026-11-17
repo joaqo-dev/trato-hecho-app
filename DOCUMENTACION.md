@@ -82,7 +82,7 @@ Este documento explica el proyecto completo: el caso, los perfiles, las funciona
 | Módulo | Qué hace |
 |---|---|
 | **Login y sesión** | Ingreso con correo y clave validados. La sesión queda guardada (DataStore) para no pedir login cada vez. |
-| **Inicio** | Tarjeta principal con lo **ganado este mes** (ocultable) y lo que requiere atención: cotizaciones **por responder** (y su monto), **por vencer** en 3 días y **borradores** sin enviar. Accesos rápidos según el rol, buscador, cotización en curso con su tracker, las 2 actividades más recientes, resumen (aceptación, enviadas del mes, facturado) y ranking de vendedores. Se actualiza deslizando hacia abajo. |
+| **Inicio** | Arriba, una franja con el mes (ganado, enviadas, aceptación; montos ocultables). Luego, centrado en las **cotizaciones**: una sola acción principal según el rol (*Nueva cotización* para el vendedor, *Nuevo cliente* para el administrador), buscador y la sección **Por atender** con pestañas y su conteo: *Por vencer* (3 días, en ámbar), *Esperando respuesta*, *Borradores* y *En cola* (solo si hay). Al final, el ranking de vendedores (supervisor y administrador). Cerrar sesión está en el menú del avatar. Se actualiza deslizando hacia abajo. |
 | **Cotizaciones** | Lista con buscador y filtros por estado. Formulario con cliente y contacto, moneda CLP/USD/UF (valor real del día), ítems desde el catálogo (el impuesto viene fijo del producto), descuentos opcionales por ítem y global (% o monto), validez y notas, con el total siempre visible. Detalle con tracker, historial, envío por correo, ver PDF, nueva versión, anulación y contacto rápido. |
 | **Clientes** | Lista con buscador. Formulario con RUT que se formatea mientras se escribe (`76.123.456-0`) y valida el dígito verificador. Contactos del cliente. Permisos según el rol (ver sección 2). Baja lógica y reactivación. |
 | **Catálogo** | Productos, unidades e impuestos. El administrador los mantiene; vendedor y supervisor ven solo los productos. |
@@ -254,27 +254,33 @@ Cada pantalla sigue la misma cadena: **Pantalla** (dibuja) → **ViewModel** (es
 
 ### Servidor de Trato Hecho (`backend/`)
 
-La API de Trato Hecho no existe para el curso, así que se construyó un **servidor propio** en la carpeta `backend/` (Kotlin + **Ktor** + **SQLite**) y se publica en internet con **ngrok**. La app lo consume con **Retrofit** como a cualquier API real: hay demoras reales, errores reales sin señal y códigos HTTP reales (200, 401, 403, 404, 409).
+La API de Trato Hecho no existe para el curso, así que se construyó un **servidor propio** en la carpeta `backend/` (Kotlin + **Ktor**), con base de datos **PostgreSQL**, desplegado con **Docker Compose** en un servidor casero y publicado en **https://tratohecho-api.joaqo.dev** mediante Cloudflare Tunnel. La app lo consume con **Retrofit** como a cualquier API real: hay demoras reales, errores reales sin señal y códigos HTTP reales (200, 401, 403, 404, 409).
 
 ```
-App Android ──┐
-              ├──► https://<dominio>.ngrok-free.dev ──► servidor en el computador (puerto 8080)
-Navegador ────┘                                        ├─ /v1/...  API REST de la app
-                                                       ├─ /panel   panel web
-                                                       └─ backend/tratohecho.db (SQLite)
+App Android ──┐                                     Servidor (Docker Compose)
+              ├──► https://tratohecho-api.joaqo.dev ──► Caddy ──► tratohecho-api (Ktor, :8080)
+Navegador ────┘     (Cloudflare Tunnel, HTTPS)                     ├─ /v1/...  API REST de la app
+                                                                   ├─ /panel   panel web
+                                                                   ├─ /salud   estado del servidor
+                                                                   └─► tratohecho-db (PostgreSQL 17)
 
-Repositorio → Retrofit (TratoHechoApi) → AuthInterceptor (agrega el token) → internet (ngrok) → ServidorTratoHecho
+Repositorio → Retrofit (TratoHechoApi) → AuthInterceptor (agrega el token) → internet (HTTPS) → ServidorTratoHecho
 ```
+
+En desarrollo el mismo servidor corre en el computador con **SQLite** (`backend/tratohecho.db`) y se publica con **ngrok** (`backend/iniciar.sh`). El servidor elige la base según las variables de entorno: con `DB_URL` usa PostgreSQL; sin ella, SQLite.
+
+**Seguridad:** al iniciar sesión el servidor entrega un **token aleatorio** (se guarda en la tabla `sesiones`, así sobrevive a reinicios). Si el servidor rechaza el token (401), la app cierra la sesión y vuelve al login. La clave del panel (`PANEL_CLAVE`) y la de PostgreSQL solo existen en el `.env` del servidor.
 
 | Archivo (`backend/src/main/kotlin/…/servidor/`) | Qué hace |
 |---|---|
-| `Main.kt` | Arranca Ktor, recibe las rutas `/v1/...` y muestra cada petición en la terminal |
+| `Main.kt` | Arranca Ktor, lee la configuración de las variables de entorno, recibe las rutas `/v1/...`, responde `/salud` y registra los cambios y errores |
 | `ServidorTratoHecho.kt` | Reglas del servidor (permisos, multi-tenant, correlativo, vencimiento) y acciones del panel |
-| `datos/AlmacenSqlite.kt` | Guarda los datos en SQLite: una tabla por entidad con el registro en JSON |
+| `datos/AlmacenJdbc.kt` | Guarda los datos por JDBC en PostgreSQL (o SQLite en desarrollo): una tabla por entidad con el registro en JSON(B), más correlativos y sesiones |
 | `datos/DatosSemilla.kt` | Datos de prueba (2 empresas) que se cargan la primera vez |
 | `modelo/Modelos.kt` | Los mismos modelos de la app, sin anotaciones de Room |
 | `panel/PanelRutas.kt` y `resources/panel/index.html` | Panel web |
-| `backend/iniciar.sh` | Levanta el servidor y ngrok con un solo comando |
+| `backend/iniciar.sh` | Desarrollo: levanta el servidor local y ngrok con un solo comando |
+| `backend/Dockerfile`, `compose.yml`, `.env.example` | Producción: imagen del servidor y contenedores de la API y PostgreSQL |
 
 La URL del servidor se configura en `local.properties` (`tratohecho.api.url`) y llega a la app por `BuildConfig.URL_API`. A cada petición se le agrega el encabezado `ngrok-skip-browser-warning` para saltar la página de aviso de ngrok.
 
@@ -330,6 +336,7 @@ El valor del día se obtiene de la API pública **https://findic.cl/api/** (sin 
 - Lo creado o editado offline queda marcado como **pendiente** (ícono de nube).
 - `MonitorRed` (ConnectivityManager) avisa cuando vuelve la señal y `GestorSincronizacion` sincroniza solo, incluso con la app en segundo plano.
 - Además, `GestorSincronizacion` consulta el servidor **cada 15 segundos** (sin mostrar el aviso de "sincronizando"), así las respuestas de los clientes y las facturas registradas en el panel llegan solas.
+- La sincronización automática no se muestra en pantalla. Solo al deslizar hacia abajo aparece la rueda de carga, y solo se avisa con un mensaje si falla. Las descargas de la API van **en paralelo** y el dólar/UF se actualiza aparte, para que la espera sea corta.
 
 | Funciona sin conexión | Requiere conexión |
 |---|---|
@@ -456,7 +463,7 @@ Curvas y duraciones centralizadas en `ui/theme/Movimiento.kt` (120–280 ms; el 
 
 - Paleta **monocroma de alto contraste** (pensada para leerse a pleno sol) con el **ámbar** de la marca como único acento (en cola, por vencer).
 - Colores suaves por estado: azul enviada, verde aceptada, rojo rechazada, violeta facturada, ámbar vencida.
-- Tarjeta principal negra, botones tipo píldora, tarjetas grises de 24 dp y barra inferior flotante.
+- Inicio centrado en las cotizaciones por atender, botones tipo píldora, tarjetas grises de 24 dp y barra inferior flotante con etiquetas siempre visibles.
 - Tracker del ciclo en cada tarjeta y línea de tiempo en el detalle.
 - Tema claro y oscuro según la configuración del teléfono.
 - Selectores en hoja inferior; acciones de cada fila en un menú ⋮.
@@ -499,17 +506,13 @@ Definido en `ui/theme/` (`Color.kt`, `Theme.kt`, `Type.kt`, `Shape.kt`, `Movimie
 
 ## 15. Cómo ejecutar
 
-**Una sola vez:** crear una cuenta en ngrok, instalarlo (`brew install ngrok`), guardar el token (`ngrok config add-authtoken <TOKEN>`) y agregar en `local.properties` la URL del dominio fijo gratuito:
-
-```
-tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/
-```
-
-**Cada vez:**
-
-1. Levantar el servidor y ngrok: `./backend/iniciar.sh <tu-dominio>.ngrok-free.dev` (dejar la terminal abierta).
-2. Abrir el panel en `https://<tu-dominio>.ngrok-free.dev/panel`.
-3. Abrir el proyecto en **Android Studio**, iniciar un emulador con Android 8.0 (API 26) o superior (recomendado: con Google Play, para tener Gmail) y presionar **▶ Run**.
+1. Abrir el proyecto en **Android Studio** y agregar en `local.properties` la URL del servidor publicado:
+   ```
+   tratohecho.api.url=https://tratohecho-api.joaqo.dev/v1/
+   ```
+   (Para un servidor local con ngrok, ver el README.)
+2. Iniciar un emulador con Android 8.0 (API 26) o superior (recomendado: con Google Play, para tener Gmail) y presionar **▶ Run**.
+3. El panel web está en https://tratohecho-api.joaqo.dev/panel.
 4. Ingresar con un usuario de prueba (todos con clave `Trato123`):
 
 | Empresa | Perfil | Correo |
@@ -523,7 +526,9 @@ tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/
 | Climatiza Sur Ltda. | Vendedor | tomas@climatiza.cl |
 | Climatiza Sur Ltda. | Vendedor | valentina@climatiza.cl |
 
-Para volver a los datos iniciales: botón **Reiniciar datos** del panel y, en el teléfono, Ajustes → Apps → Trato Hecho → Almacenamiento → Borrar datos.
+Para volver a los datos iniciales: botón **Reiniciar datos** del panel (las sesiones se cierran y la app vuelve al login).
+
+El despliegue (contenedores, logs, actualización y respaldos de la base) está explicado en la sección *Despliegue en el servidor* del README.
 
 **Probar la sincronización híbrida:** activar el modo avión y enviar una cotización como vendedor (queda *En cola* con número `TMP-…`). Al desactivar el modo avión llega al panel con su número `COT-…` y aparece la notificación "lista para enviar". Luego, en el panel, *Aceptar* y *Facturar*: antes de 15 segundos llega cada notificación al teléfono.
 
@@ -552,8 +557,11 @@ Para simular lo que el caso deja fuera de la app: el cliente que acepta o rechaz
 **¿Cómo se entera la app de una respuesta o una factura?**
 `GestorSincronizacion` consulta el servidor cada 15 segundos y al volver la señal. Compara el estado de cada cotización antes y después, y si cambió a Aceptada, Rechazada o Facturada muestra una notificación.
 
-**¿Por qué ngrok y no la IP del computador?**
-ngrok da una URL pública con HTTPS, así la app funciona igual en el emulador y en un teléfono físico con datos móviles. Además, Android 17 bloquea por defecto la conexión de las apps a la red local.
+**¿Dónde corre el servidor?**
+En un servidor casero con Docker Compose: un contenedor con la API (Ktor) y otro con PostgreSQL, que solo es accesible desde la red interna de los contenedores. Cloudflare Tunnel lo publica con HTTPS en `tratohecho-api.joaqo.dev` sin abrir puertos en el router.
+
+**¿Por qué una URL pública con HTTPS y no la IP del computador?**
+Así la app funciona igual en el emulador y en un teléfono físico con datos móviles. Además, Android bloquea por defecto el HTTP sin cifrar, y Android 17 bloquea la conexión de las apps a la red local. En desarrollo se usa ngrok con la misma idea.
 
 **¿Qué pasa si no hay internet?**
 La app sigue funcionando con los datos de Room. Lo nuevo queda pendiente y se sincroniza solo al volver la señal; los envíos quedan en cola y avisan con una notificación.

@@ -23,7 +23,7 @@ visita**, con el valor del dólar o la UF actualizado, y cada empresa sigue el c
 | Módulo | Qué hace |
 |---|---|
 | **Login y sesión** | Ingreso con correo y clave. La empresa (tenant) se obtiene desde la API. La sesión queda guardada en DataStore. |
-| **Inicio** | Tarjeta principal con lo **ganado este mes** (se puede ocultar) y lo que requiere atención: cotizaciones por responder (y su monto), por vencer en 3 días y borradores sin enviar; accesos a *Cotizar* y *Nuevo cliente*. Debajo: buscador, la cotización en curso con su tracker, las 2 actividades más recientes, un resumen (aceptación, enviadas del mes, facturado) y el ranking de vendedores (supervisor y administrador). Se actualiza deslizando hacia abajo. |
+| **Inicio** | Arriba, una franja con el mes (ganado, enviadas, aceptación; montos ocultables). Luego, centrado en las **cotizaciones**: una sola acción principal según el rol (*Nueva cotización* para el vendedor, *Nuevo cliente* para el administrador), buscador y la sección **Por atender** con pestañas y su conteo: *Por vencer* (3 días, en ámbar), *Esperando respuesta*, *Borradores* y *En cola* (solo si hay). Al final, el ranking de vendedores (supervisor y administrador). Cerrar sesión está en el menú del avatar. Se actualiza deslizando hacia abajo. |
 | **Clientes** | Los clientes son de la empresa y el **administrador** los registra, edita, asigna a un vendedor y da de baja (funciona sin conexión). Cada vendedor ve solo los clientes que tiene asignados y puede actualizar su correo, teléfono y personas de contacto. Validación de RUT chileno, correo y teléfono. **Nunca se borran datos**: un cliente dado de baja deja de poder cotizarse pero conserva su historial. |
 | **Catálogo** | Productos/servicios, tipos de unidad e impuestos. El administrador los crea, edita y elimina; el resto solo los consulta. |
 | **Cotizaciones** | Ítems desde el catálogo, descuento por ítem y global (% o monto), impuesto por ítem (lo trae cada producto del catálogo y no se modifica al cotizar), moneda CLP/USD/UF con valor de findic.cl, validez en días y notas. Borradores sin conexión con número temporal `TMP-xxxx`; la API asigna el correlativo `COT-xxxx`. |
@@ -53,7 +53,7 @@ El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluac
 | Gestión de estado | `StateFlow` + `collectAsStateWithLifecycle`, `SavedStateHandle`, eventos con `SharedFlow`. |
 | Persistencia local | **Room** (clientes, contactos, catálogo, cotizaciones e ítems) y **DataStore** (sesión y último valor del dólar/UF). |
 | Recursos nativos | **Teléfono y correo** (`nativo/ContactoHelper.kt`, marcador con `ACTION_DIAL` sin pedir permiso de llamadas), **estado de red** (`nativo/MonitorRed.kt`, ConnectivityManager), **notificaciones** con permiso en tiempo de ejecución (`nativo/NotificacionesHelper.kt`) y **compartir/correo** con FileProvider y PDF generado con PdfDocument (`nativo/CompartirHelper.kt`, `nativo/GeneradorPdf.kt`). |
-| Animaciones | Línea del **tracker** que se llena al aparecer, efecto de presión (escala 0.97) en tarjetas y botones, píldora de la barra inferior que se expande con resorte, `AnimatedVisibility` (errores, banners), `animateColorAsState` (estado), `animateFloatAsState` (indicadores y barras), `AnimatedContent` (total, pestañas, botón con loader), `animateContentSize`, `animateItem` en listas y transiciones entre pantallas. |
+| Animaciones | Línea del **tracker** que se llena al aparecer, efecto de presión (escala 0.97) en tarjetas y botones, pestañas de la barra inferior y del inicio con cambio de color, `AnimatedVisibility` (errores, banners), `animateColorAsState` (estado), `animateFloatAsState` (indicadores y barras), `AnimatedContent` (total, pestañas, botón con loader), `animateContentSize`, `animateItem` en listas y transiciones entre pantallas. |
 | Arquitectura MVVM modular | Ver estructura abajo. Inyección de dependencias con **Hilt**. |
 
 ## Diseño de la interfaz
@@ -61,7 +61,8 @@ El perfil **Facturación** (órdenes de compra y facturas) queda para la Evaluac
 La interfaz toma como referencia una app de seguimiento de envíos: cada cotización se sigue como un envío.
 
 - **Monocromo de alto contraste** (pensado para usarse a pleno sol) con el ámbar de la marca como único acento; colores de estado suaves para las cotizaciones.
-- **Tarjeta principal negra**, botones tipo píldora, tarjetas grises de 24 dp y **barra inferior flotante** con la sección activa en una píldora negra.
+- El inicio responde una pregunta: **qué cotizaciones necesitan acción hoy**. Botones tipo píldora, tarjetas grises de 24 dp (cliente y total primero, número y estado debajo) y **barra inferior flotante** con ícono y nombre siempre visibles.
+- Revisada con las heurísticas de Nielsen: estado visible (conteos, filtro *Todas*), prevención de errores (confirmar antes de descartar cambios o anular, acciones destructivas en rojo), reconocer antes que recordar (etiquetas en la barra) y diseño minimalista (sin etiquetas redundantes).
 - **Tracker del ciclo** en cada tarjeta y **línea de tiempo** en el detalle.
 - **Tema claro y oscuro.**
 - Animaciones cortas (120–280 ms) con curvas *ease-out* marcadas; nada se anima desde cero.
@@ -94,16 +95,20 @@ cl.duoc.tratohecho/
 
 ### Servidor (API) y panel web
 
-La API de Trato Hecho la responde un servidor propio, en la carpeta [`backend/`](backend/) (Kotlin + Ktor + SQLite),
-que se publica en internet con **ngrok**. La app lo consume con Retrofit igual que a cualquier API real.
+La API de Trato Hecho la responde un servidor propio, en la carpeta [`backend/`](backend/) (Kotlin + Ktor),
+desplegado con Docker en un servidor casero y publicado en **https://tratohecho-api.joaqo.dev** mediante
+Cloudflare Tunnel. La app lo consume con Retrofit igual que a cualquier API real.
 
 ```
-App Android ──┐
-              ├──► https://<dominio>.ngrok-free.dev ──► servidor en el computador (puerto 8080)
-Navegador ────┘                                        ├─ /v1/...  API REST de la app
-                                                       ├─ /panel   panel web
-                                                       └─ backend/tratohecho.db (SQLite)
+App Android ──┐                                     Servidor (Docker Compose)
+              ├──► https://tratohecho-api.joaqo.dev ──► Caddy ──► tratohecho-api (Ktor, :8080)
+Navegador ────┘     (Cloudflare Tunnel, HTTPS)                     ├─ /v1/...  API REST de la app
+                                                                   ├─ /panel   panel web
+                                                                   ├─ /salud   estado del servidor
+                                                                   └─► tratohecho-db (PostgreSQL 17)
 ```
+
+En desarrollo el mismo servidor corre en el computador con SQLite y se publica con ngrok (`backend/iniciar.sh`).
 
 El servidor:
 
@@ -112,8 +117,8 @@ El servidor:
 - Marca como **vencidas** las cotizaciones que pasaron su validez.
 - Si el cliente aceptó una cotización mientras el vendedor la anulaba sin señal, gana la aceptación.
 
-El **panel web** (`/panel`) simula lo que ocurre fuera de la app: ingresa con `panel@tratohecho.cl` / `Trato123`,
-elige la empresa y desde ahí:
+El **panel web** (`/panel`) simula lo que ocurre fuera de la app. Se ingresa con `panel@tratohecho.cl` y la clave
+definida en `PANEL_CLAVE` (en desarrollo, `Trato123`); se elige la empresa y desde ahí:
 
 - **Acepta o rechaza** las cotizaciones enviadas (como el cliente en la página pública).
 - **Factura** las cotizaciones aceptadas (como la empresa).
@@ -150,29 +155,27 @@ Cada empresa solo ve su propia información. Los correos de clientes son de prue
 
 ## Cómo ejecutar
 
-### 1. Servidor + ngrok (una sola vez)
+### Con el servidor publicado (lo normal)
 
-1. Crear una cuenta gratis en [ngrok.com](https://ngrok.com), instalarlo (`brew install ngrok`) y guardar el token:
-   `ngrok config add-authtoken <TU_TOKEN>`.
-2. Copiar el dominio fijo gratuito desde *dashboard.ngrok.com → Domains*.
-3. Agregar la URL en `local.properties` (en la raíz del proyecto; no se sube a GitHub):
+1. Abrir el proyecto en **Android Studio** y agregar en `local.properties` (raíz del proyecto; no se sube a GitHub):
    ```
-   tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/
+   tratohecho.api.url=https://tratohecho-api.joaqo.dev/v1/
    ```
+2. Ejecutar la configuración `app` en un emulador o teléfono con **Android 8.0 (API 26)** o superior.
+3. Ingresar con alguno de los usuarios de prueba. El panel está en https://tratohecho-api.joaqo.dev/panel.
 
-### 2. Cada vez que se va a probar
+### Con un servidor local (desarrollo)
 
-1. Levantar el servidor y ngrok (deja la terminal abierta; se detiene con `Ctrl+C`):
+1. Crear una cuenta gratis en [ngrok.com](https://ngrok.com), instalarlo (`brew install ngrok`), guardar el token
+   (`ngrok config add-authtoken <TU_TOKEN>`) y copiar el dominio fijo gratuito (*dashboard.ngrok.com → Domains*).
+2. En `local.properties`: `tratohecho.api.url=https://<tu-dominio>.ngrok-free.dev/v1/`
+3. Levantar el servidor (SQLite en `backend/tratohecho.db`) y ngrok; se detiene con `Ctrl+C`:
    ```
    ./backend/iniciar.sh <tu-dominio>.ngrok-free.dev
    ```
-2. Abrir `https://<tu-dominio>.ngrok-free.dev/panel` en el navegador.
-3. Abrir el proyecto en **Android Studio** y ejecutar la configuración `app` en un emulador o teléfono con
-   **Android 8.0 (API 26)** o superior. Con ngrok también funciona en un teléfono físico con datos móviles.
-4. Ingresar con alguno de los usuarios de prueba.
 
-> Sin ngrok la app apunta a `http://10.0.2.2:8080/v1/` (el computador visto desde el emulador). En Android 17
-> el sistema bloquea por defecto la conexión de las apps a la red local, por eso se recomienda usar ngrok.
+> Sin `tratohecho.api.url` la app apunta a `http://10.0.2.2:8080/v1/` (el computador visto desde el emulador).
+> En Android 17 el sistema bloquea por defecto la conexión de las apps a la red local, por eso se usa una URL pública.
 
 ### Probar la sincronización híbrida
 
@@ -183,14 +186,47 @@ Cada empresa solo ve su propia información. Los correos de clientes son de prue
 3. En el panel, **Aceptar** la cotización: antes de 15 segundos llega al teléfono "¡Trato hecho! … fue aceptada".
 4. En el panel, **Facturar**: llega "… fue facturada" y el tracker de la cotización queda completo.
 
-Para volver a los datos iniciales: botón **Reiniciar datos** del panel y luego, en el teléfono,
-*Configuración → Apps → Trato Hecho → Almacenamiento → Borrar datos*.
+Para volver a los datos iniciales: botón **Reiniciar datos** del panel. Las sesiones abiertas se cierran y la app
+vuelve al login.
+
+## Despliegue en el servidor
+
+El servidor vive en `/srv/apps/trato-hecho` (clon de este repositorio) y se levanta con [`compose.yml`](compose.yml):
+
+| Contenedor | Qué es | Redes |
+|---|---|---|
+| `tratohecho-api` | API Ktor + panel (imagen de [`backend/Dockerfile`](backend/Dockerfile), máx. 768 MB) | `web` (Caddy) e interna |
+| `tratohecho-db` | PostgreSQL 17, datos en el volumen `db_data` | solo interna |
+
+Los secretos van en `/srv/apps/trato-hecho/.env` (`chmod 600`), según [`.env.example`](.env.example):
+`POSTGRES_PASSWORD` (generada con `openssl rand -hex 24`), `PANEL_CORREO` y `PANEL_CLAVE`.
+Caddy lo expone en `http://192.168.18.196:8082` (red local) y en `tratohecho-api.joaqo.dev` (Cloudflare Tunnel),
+según `/srv/proxy/sites/tratohecho.caddy`.
+
+```bash
+ssh joaqo@192.168.18.196
+cd /srv/apps/trato-hecho
+
+docker compose ps                          # estado (ambos deben decir "healthy")
+docker compose logs -f --tail=100 api      # registro en vivo (cambios y errores)
+git pull && docker compose up -d --build   # actualizar después de un push a main
+
+# Respaldo de la base de datos
+docker compose exec -T db pg_dump -U tratohecho --clean --if-exists tratohecho > ~/respaldo-tratohecho-$(date +%F).sql
+# Restaurar un respaldo (reemplaza los datos actuales). La API guarda los datos en memoria,
+# por eso se detiene antes y se vuelve a levantar después.
+docker compose stop api
+docker compose exec -T db psql -U tratohecho -d tratohecho < ~/respaldo-tratohecho-AAAA-MM-DD.sql
+docker compose start api
+```
+
+El registro solo muestra los cambios y los errores; con `REGISTRAR_TODO=1` en `.env` muestra también cada consulta.
 
 ## Tecnologías
 
 Kotlin 2.2 · Jetpack Compose + Material 3 · Navigation Compose · ViewModel + StateFlow · Hilt · Room · DataStore ·
 Retrofit + OkHttp + Gson · PdfDocument · FileProvider · NotificationCompat · ConnectivityManager.
-Servidor: Ktor · SQLite · ngrok.
+Servidor: Ktor · PostgreSQL (SQLite en desarrollo) · Docker Compose · Caddy · Cloudflare Tunnel · ngrok (desarrollo).
 
 ## Alcance
 
