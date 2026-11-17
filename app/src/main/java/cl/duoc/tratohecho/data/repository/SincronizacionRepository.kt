@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.data.repository
 
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.async
 import cl.duoc.tratohecho.data.local.dao.CatalogoDao
 import cl.duoc.tratohecho.data.local.dao.ClienteDao
 import cl.duoc.tratohecho.data.local.dao.CotizacionDao
@@ -60,14 +62,23 @@ class SincronizacionRepository @Inject constructor(
             }
         }
 
-        // 3) Bajar los datos actualizados de la API
-        empresaDao.guardar(api.obtenerEmpresa())
-        catalogoDao.reemplazarCatalogo(api.obtenerUnidades(), api.obtenerImpuestos(), api.obtenerProductos())
-        clienteDao.reemplazarSincronizados(api.obtenerClientes())
-        val cotizaciones = api.obtenerCotizaciones()
-        cotizacionDao.reemplazarSincronizadas(cotizaciones)
-        if (sesion.rol == Rol.ADMINISTRADOR) {
-            usuarioDao.reemplazarTodos(api.obtenerUsuarios())
+        // 3) Bajar los datos actualizados de la API. Las consultas van en paralelo:
+        // antes eran 7-8 llamadas una tras otra y la espera se sumaba.
+        val cotizaciones = coroutineScope {
+            val empresa = async { api.obtenerEmpresa() }
+            val unidades = async { api.obtenerUnidades() }
+            val impuestos = async { api.obtenerImpuestos() }
+            val productos = async { api.obtenerProductos() }
+            val clientes = async { api.obtenerClientes() }
+            val cotizaciones = async { api.obtenerCotizaciones() }
+            val usuarios = if (sesion.rol == Rol.ADMINISTRADOR) async { api.obtenerUsuarios() } else null
+
+            empresaDao.guardar(empresa.await())
+            catalogoDao.reemplazarCatalogo(unidades.await(), impuestos.await(), productos.await())
+            clienteDao.reemplazarSincronizados(clientes.await())
+            cotizacionDao.reemplazarSincronizadas(cotizaciones.await())
+            usuarios?.let { usuarioDao.reemplazarTodos(it.await()) }
+            cotizaciones.await()
         }
 
         // 4) Detectar cotizaciones que el cliente respondió en la página pública

@@ -73,10 +73,11 @@ class GestorSincronizacion @Inject constructor(
             }
             if (!silenciosa) _sincronizando.value = true
             val resultado = llamarApi { repository.sincronizar(sesion) }
-            // También se guarda el dólar y la UF del día, para usarlos si después se pierde la señal
-            // (no en la periódica, para no consultar findic.cl cada 15 segundos)
-            if (!silenciosa) indicadoresRepository.actualizar()
             _sincronizando.value = false
+            // También se guarda el dólar y la UF del día, para usarlos si después se pierde la señal
+            // (no en la periódica, para no consultar findic.cl cada 15 segundos). Va aparte, en segundo
+            // plano: es otro servidor y no debe alargar la sincronización que ve el usuario.
+            if (!silenciosa) scope.launch { runCatching { indicadoresRepository.actualizar() } }
 
             // El servidor ya no reconoce el token (ej: se reiniciaron sus datos): se vuelve al login
             if ((resultado.exceptionOrNull()?.cause as? HttpException)?.code() == 401) {
