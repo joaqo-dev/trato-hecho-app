@@ -66,6 +66,7 @@ fun ClientesScreen(
     onAbrir: (String) -> Unit,
     onNuevo: () -> Unit,
     actualizando: Boolean,
+    cargando: Boolean = actualizando,   // sincronización automática en curso (lista aún vacía)
     sinConexion: Boolean,
     onActualizar: () -> Unit,
     viewModel: ClientesViewModel = hiltViewModel()
@@ -98,7 +99,7 @@ fun ClientesScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     when {
-                        lista == null || (lista.isEmpty() && actualizando) -> item { CargandoDatos("Cargando clientes…") }
+                        lista == null || (lista.isEmpty() && cargando) -> item { CargandoDatos("Cargando clientes…") }
                         lista.isEmpty() && sinConexion && busqueda.isBlank() -> item {
                             EstadoVacio(
                                 icono = Icons.Filled.CloudOff,

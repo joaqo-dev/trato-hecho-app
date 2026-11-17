@@ -40,6 +40,20 @@ object Formatos {
     fun hora(millis: Long?): String =
         if (millis == null) "" else SimpleDateFormat("HH:mm", localeChile).format(Date(millis))
 
+    // Días de calendario desde hoy hasta la fecha (0 = hoy, 1 = mañana, negativo = ya pasó)
+    fun diasHasta(millis: Long, ahora: Long = System.currentTimeMillis()): Int {
+        fun inicioDelDia(t: Long) = java.util.Calendar.getInstance().apply {
+            timeInMillis = t
+            set(java.util.Calendar.HOUR_OF_DAY, 0); set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0); set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+        return Math.round((inicioDelDia(millis) - inicioDelDia(ahora)) / 86_400_000.0).toInt()
+    }
+
+    // "martes 17 de noviembre"
+    fun fechaLarga(millis: Long): String =
+        SimpleDateFormat("EEEE d 'de' MMMM", localeChile).format(Date(millis))
+
     fun porcentaje(valor: Double): String = "${(valor * 100).toInt()}%"
 
     // Para mostrar un Double en un campo de texto sin ".0" sobrante

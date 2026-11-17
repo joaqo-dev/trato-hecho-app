@@ -210,6 +210,7 @@ fun ClienteDetalleScreen(
             titulo = "Dar de baja al cliente",
             mensaje = "El cliente dejará de aparecer para cotizar y su vendedor ya no lo verá. No se borra nada: sus cotizaciones y datos se conservan y puedes reactivarlo cuando quieras.",
             textoConfirmar = "Dar de baja",
+            destructivo = true,
             onConfirmar = {
                 confirmarBaja = false
                 viewModel.cambiarEstado(false)

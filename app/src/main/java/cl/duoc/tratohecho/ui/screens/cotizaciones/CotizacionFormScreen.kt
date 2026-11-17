@@ -1,5 +1,32 @@
 package cl.duoc.tratohecho.ui.screens.cotizaciones
 
+import cl.duoc.tratohecho.domain.CalculadoraCotizacion
+import cl.duoc.tratohecho.utils.Validaciones
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.clickable
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Payments
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.OutlinedTextFieldDefaults
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import cl.duoc.tratohecho.ui.components.DialogoConfirmacion
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.activity.compose.BackHandler
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import cl.duoc.tratohecho.ui.components.AccionMenu
@@ -12,7 +39,6 @@ import cl.duoc.tratohecho.ui.theme.Pildora
 import cl.duoc.tratohecho.ui.components.SeccionDescuento
 import androidx.compose.material3.HorizontalDivider
 import cl.duoc.tratohecho.ui.theme.DURACION_CORTA
-import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.animation.togetherWith
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.fadeIn
@@ -29,7 +55,6 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -39,7 +64,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Notes
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.Business
 import androidx.compose.material.icons.filled.CloudOff
 import androidx.compose.material.icons.filled.Delete
@@ -49,7 +73,6 @@ import androidx.compose.material.icons.filled.Error
 import androidx.compose.material.icons.filled.EventAvailable
 import androidx.compose.material.icons.filled.Inventory2
 import androidx.compose.material.icons.filled.Numbers
-import androidx.compose.material.icons.filled.Percent
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Save
@@ -80,7 +103,6 @@ import cl.duoc.tratohecho.ui.components.BotonCarga
 import cl.duoc.tratohecho.ui.components.CampoSelector
 import cl.duoc.tratohecho.ui.components.CampoTexto
 import cl.duoc.tratohecho.ui.components.FilaItem
-import cl.duoc.tratohecho.ui.components.SelectorOpciones
 import cl.duoc.tratohecho.ui.components.TarjetaTotales
 import cl.duoc.tratohecho.ui.components.TituloSeccion
 import cl.duoc.tratohecho.utils.Formatos
@@ -116,13 +138,26 @@ fun CotizacionFormScreen(
         }
     }
 
+    // Prevención de errores: salir con cambios sin guardar pide confirmación
+    // (se compara contra lo que había al abrir el formulario)
+    val firma = listOf(
+        estado.clienteId, estado.contactoId, estado.moneda, estado.diasValidez, estado.notas,
+        estado.items, estado.descuentoGlobal, estado.descuentoGlobalTipo
+    )
+    var firmaInicial by remember { mutableStateOf<List<Any?>?>(null) }
+    LaunchedEffect(estado.cargando) { if (!estado.cargando && firmaInicial == null) firmaInicial = firma }
+    val hayCambios = firmaInicial != null && firma != firmaInicial && !estado.guardando
+    var confirmarSalida by remember { mutableStateOf(false) }
+    val intentarSalir = { if (hayCambios) confirmarSalida = true else onVolver() }
+    BackHandler(enabled = hayCambios) { confirmarSalida = true }
+
     val titulo = when {
         estado.esNueva -> "Nueva cotización"
         else -> "Editar ${estado.base?.numeroCompleto ?: ""}"
     }
 
     Scaffold(
-        topBar = { BarraConVolver(titulo, onVolver) },
+        topBar = { BarraConVolver(titulo, intentarSalir) },
         // La acción principal queda siempre a mano, con el total al día
         bottomBar = {
             if (!estado.cargando) {
@@ -145,7 +180,8 @@ fun CotizacionFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
-                .imePadding()
+                // Sin imePadding aquí: la barra inferior ya sube con el teclado y el Scaffold
+                // descuenta su altura; sumarlo de nuevo dejaba el formulario aplastado
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
         ) {
@@ -172,16 +208,27 @@ fun CotizacionFormScreen(
                 )
             }
 
-            // ---------- Moneda ----------
-            TituloSeccion("Moneda")
-            SelectorOpciones(
-                opciones = Moneda.entries,
-                seleccionada = estado.moneda,
-                textoDe = { it.name },
-                onSeleccionar = viewModel::onMonedaChange,
-                habilitado = !estado.cargandoTipoCambio
-            )
-            Column(Modifier.animateContentSize().padding(top = 6.dp)) {
+            // ---------- Condiciones: moneda y validez en una sola fila ----------
+            // La moneda es un desplegable compacto: casi siempre queda en CLP y no merece una fila entera
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.Top) {
+                CampoMoneda(
+                    moneda = estado.moneda,
+                    onSeleccionar = viewModel::onMonedaChange,
+                    habilitado = !estado.cargandoTipoCambio,
+                    modifier = Modifier.weight(1f)
+                )
+                CampoTexto(
+                    valor = estado.diasValidez,
+                    onValorChange = viewModel::onDiasValidezChange,
+                    etiqueta = "Validez (días)",
+                    icono = Icons.Filled.EventAvailable,
+                    error = estado.errores.diasValidez,
+                    mostrarValido = estado.intentoGuardar,
+                    tipoTeclado = KeyboardType.Number,
+                    modifier = Modifier.weight(1f)
+                )
+            }
+            Column(Modifier.animateContentSize()) {
                 if (estado.cargandoTipoCambio) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         CircularProgressIndicator(Modifier.size(16.dp), strokeWidth = 2.dp)
@@ -257,16 +304,7 @@ fun CotizacionFormScreen(
                 }
             }
 
-            // ---------- Condiciones ----------
-            CampoTexto(
-                valor = estado.diasValidez,
-                onValorChange = viewModel::onDiasValidezChange,
-                etiqueta = "Validez (días)",
-                icono = Icons.Filled.EventAvailable,
-                error = estado.errores.diasValidez,
-                mostrarValido = estado.intentoGuardar,
-                tipoTeclado = KeyboardType.Number
-            )
+            // ---------- Notas ----------
             CampoTexto(
                 valor = estado.notas,
                 onValorChange = viewModel::onNotasChange,
@@ -294,6 +332,21 @@ fun CotizacionFormScreen(
         }
     }
 
+    if (confirmarSalida) {
+        DialogoConfirmacion(
+            titulo = "¿Descartar los cambios?",
+            mensaje = "Si sales ahora se pierde lo que no has guardado. Puedes guardarlo como borrador para terminarlo después.",
+            textoConfirmar = "Descartar",
+            textoCancelar = "Seguir editando",
+            destructivo = true,
+            onConfirmar = {
+                confirmarSalida = false
+                onVolver()
+            },
+            onCancelar = { confirmarSalida = false }
+        )
+    }
+
     // Sin señal: se puede seguir en USD/UF con el último valor guardado, pero se avisa
     estado.avisoMoneda?.let { aviso ->
         AlertDialog(
@@ -313,7 +366,6 @@ fun CotizacionFormScreen(
             onProducto = viewModel::onItemProductoChange,
             onDescripcion = viewModel::onItemDescripcionChange,
             onCantidad = viewModel::onItemCantidadChange,
-            onPrecio = viewModel::onItemPrecioChange,
             onDescuentoTipo = viewModel::onItemDescuentoTipoChange,
             onDescuento = viewModel::onItemDescuentoChange,
             onGuardar = viewModel::guardarItem,
@@ -323,6 +375,7 @@ fun CotizacionFormScreen(
 }
 
 // Formulario de ítem: se elige un producto del catálogo (que trae su impuesto) y se ajusta cantidad, precio y descuento
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun DialogoItem(
     estado: ItemFormState,
@@ -331,17 +384,28 @@ private fun DialogoItem(
     onProducto: (ProductoEntity) -> Unit,
     onDescripcion: (String) -> Unit,
     onCantidad: (String) -> Unit,
-    onPrecio: (String) -> Unit,
     onDescuentoTipo: (TipoDescuento) -> Unit,
     onDescuento: (String) -> Unit,
     onGuardar: () -> Unit,
     onCancelar: () -> Unit
 ) {
-    AlertDialog(
+    // Hoja inferior en vez de diálogo: los campos tienen espacio y el teclado no tapa los botones
+    ModalBottomSheet(
         onDismissRequest = onCancelar,
-        title = { Text(if (estado.esNuevo) "Agregar ítem" else "Editar ítem") },
-        text = {
-            Column(Modifier.verticalScroll(rememberScrollState())) {
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = MaterialTheme.colorScheme.surface
+    ) {
+            Column(
+                Modifier
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 20.dp)
+                    .padding(bottom = 16.dp)
+            ) {
+                Text(
+                    if (estado.esNuevo) "Agregar ítem" else "Editar ítem",
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(bottom = 12.dp)
+                )
                 CampoSelector(
                     etiqueta = "Producto o servicio",
                     icono = Icons.Filled.Inventory2,
@@ -357,38 +421,69 @@ private fun DialogoItem(
                     estado.cantidad, onCantidad, "Cantidad ${estado.unidad}".trim(), Icons.Filled.Numbers,
                     error = estado.errores.cantidad, tipoTeclado = KeyboardType.Decimal
                 )
-                CampoTexto(
-                    estado.precio, onPrecio, "Precio unitario (${moneda.simbolo})", Icons.Filled.AttachMoney,
-                    error = estado.errores.precio, tipoTeclado = KeyboardType.Decimal
-                )
-                // El impuesto se muestra pero no se elige: viene del producto del catálogo
-                if (estado.impuestoNombre != null) {
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
+                // Precio e impuesto los fija el administrador en el catálogo: se muestran, no se editan
+                if (estado.productoId != null) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(bottom = 4.dp)
                             .clip(MaterialTheme.shapes.medium)
                             .background(MaterialTheme.colorScheme.surfaceContainer)
-                            .padding(horizontal = 14.dp, vertical = 12.dp)
+                            .padding(horizontal = 16.dp, vertical = 12.dp)
                     ) {
-                        Icon(Icons.Filled.Percent, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Spacer(Modifier.width(12.dp))
-                        Column(Modifier.weight(1f)) {
-                            Text(
+                        // Cálculo en vivo: cambia apenas se edita la cantidad o el descuento
+                        val cantidad = Validaciones.aNumero(estado.cantidad)
+                        val precio = Validaciones.aNumero(estado.precio)
+                        val bruto = cantidad * precio
+                        val descuento = CalculadoraCotizacion.calcularDescuento(
+                            bruto, estado.descuentoTipo, Validaciones.aNumero(estado.descuento)
+                        )
+                        val neto = bruto - descuento
+                        val impuesto = neto * estado.impuestoPorcentaje / 100.0
+                        val totalItem = CalculadoraCotizacion.redondear(neto + impuesto, moneda)
+
+                        FilaCalculo("Precio unitario", Formatos.monto(precio, moneda))
+                        FilaCalculo(
+                            "Subtotal (${Formatos.numero(cantidad)} × ${Formatos.monto(precio, moneda)})",
+                            Formatos.monto(bruto, moneda)
+                        )
+                        if (descuento > 0) FilaCalculo("Descuento", "− ${Formatos.monto(descuento, moneda)}")
+                        if (estado.impuestoNombre != null) {
+                            FilaCalculo(
                                 if (estado.impuestoPorcentaje > 0) "${estado.impuestoNombre} ${Formatos.numero(estado.impuestoPorcentaje)}%"
                                 else estado.impuestoNombre,
-                                style = MaterialTheme.typography.bodyLarge,
-                                color = MaterialTheme.colorScheme.onSurface
+                                Formatos.monto(impuesto, moneda)
                             )
+                        }
+                        HorizontalDivider(Modifier.padding(vertical = 8.dp), color = MaterialTheme.colorScheme.outline)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Total del ítem", style = MaterialTheme.typography.titleSmall, modifier = Modifier.weight(1f))
+                            AnimatedContent(
+                                targetState = Formatos.monto(totalItem, moneda),
+                                transitionSpec = { fadeIn(tween(DURACION_CORTA)) togetherWith fadeOut(tween(120)) },
+                                label = "total_item"
+                            ) { texto ->
+                                Text(texto, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        Spacer(Modifier.height(6.dp))
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                Icons.Filled.Lock,
+                                contentDescription = null,
+                                tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(Modifier.width(6.dp))
                             Text(
-                                "Definido en el catálogo para este producto",
+                                "Precio e impuesto definidos en el catálogo",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
                     }
                 }
+                estado.errores.precio?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 estado.errores.impuesto?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
                 SeccionDescuento(
                     textoEnlace = "Agregar descuento al ítem",
@@ -399,11 +494,107 @@ private fun DialogoItem(
                     error = estado.errores.descuento,
                     moneda = moneda
                 )
+                Spacer(Modifier.height(16.dp))
+                BotonCarga(
+                    texto = if (estado.esNuevo) "Agregar a la cotización" else "Guardar cambios",
+                    onClick = onGuardar,
+                    cargando = false
+                )
+                TextButton(onClick = onCancelar, modifier = Modifier.fillMaxWidth().padding(top = 4.dp)) {
+                    Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
             }
-        },
-        confirmButton = { TextButton(onClick = onGuardar) { Text(if (estado.esNuevo) "Agregar" else "Guardar") } },
-        dismissButton = { TextButton(onClick = onCancelar) { Text("Cancelar") } }
-    )
+    }
+}
+
+// Fila "concepto ........ monto" del cálculo del ítem
+@Composable
+private fun FilaCalculo(concepto: String, monto: String) {
+    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(vertical = 2.dp)) {
+        Text(
+            concepto,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+            modifier = Modifier.weight(1f).padding(end = 12.dp)
+        )
+        Text(monto, style = MaterialTheme.typography.bodyMedium.copy(fontFeatureSettings = "tnum"))
+    }
+}
+
+// Desplegable compacto de moneda: muestra el código (CLP, USD, UF) y al tocarlo
+// abre un menú anclado al campo con el nombre completo de cada una
+@Composable
+private fun CampoMoneda(
+    moneda: Moneda,
+    onSeleccionar: (Moneda) -> Unit,
+    habilitado: Boolean,
+    modifier: Modifier = Modifier
+) {
+    var abierto by remember { mutableStateOf(false) }
+    Box(modifier) {
+        OutlinedTextField(
+            value = moneda.name,
+            onValueChange = {},
+            readOnly = true,
+            enabled = habilitado,
+            label = { Text("Moneda") },
+            leadingIcon = { Icon(Icons.Filled.Payments, contentDescription = null) },
+            trailingIcon = {
+                Icon(
+                    if (abierto) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown,
+                    contentDescription = null
+                )
+            },
+            supportingText = {},
+            singleLine = true,
+            shape = MaterialTheme.shapes.medium,
+            colors = OutlinedTextFieldDefaults.colors(
+                unfocusedBorderColor = MaterialTheme.colorScheme.outline,
+                disabledTextColor = MaterialTheme.colorScheme.onSurface,
+                disabledBorderColor = MaterialTheme.colorScheme.outlineVariant
+            ),
+            modifier = Modifier.fillMaxWidth()
+        )
+        // Capa que recibe el toque sobre todo el campo (el texto es de solo lectura)
+        Box(
+            Modifier
+                .matchParentSize()
+                .padding(bottom = 22.dp)
+                .clip(MaterialTheme.shapes.medium)
+                .clickable(enabled = habilitado, role = Role.DropdownList) { abierto = true }
+        )
+        DropdownMenu(
+            expanded = abierto,
+            onDismissRequest = { abierto = false },
+            shape = MaterialTheme.shapes.medium,
+            containerColor = MaterialTheme.colorScheme.surfaceContainerLowest
+        ) {
+            Moneda.entries.forEach { opcion ->
+                val elegida = opcion == moneda
+                DropdownMenuItem(
+                    text = {
+                        Column {
+                            Text(
+                                opcion.name,
+                                style = MaterialTheme.typography.bodyLarge,
+                                fontWeight = if (elegida) FontWeight.SemiBold else FontWeight.Normal
+                            )
+                            Text(
+                                opcion.etiqueta,
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    },
+                    trailingIcon = { if (elegida) Icon(Icons.Filled.Check, contentDescription = "Seleccionada") },
+                    onClick = {
+                        abierto = false
+                        if (!elegida) onSeleccionar(opcion)
+                    }
+                )
+            }
+        }
+    }
 }
 
 // Barra inferior fija: total en vivo + "Guardar y enviar" (principal) + "Guardar borrador" (secundaria)
@@ -414,8 +605,8 @@ private fun BarraEnvio(total: String, guardando: Boolean, onEnviar: () -> Unit, 
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
         Column(
             Modifier
-                .navigationBarsPadding()
-                .imePadding()
+                // Una sola vez: barra de navegación o teclado, el que sea más alto
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
             Row(verticalAlignment = Alignment.CenterVertically) {

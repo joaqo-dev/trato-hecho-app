@@ -57,7 +57,6 @@ import androidx.navigation.navArgument
 import cl.duoc.tratohecho.navigation.AppRoutes
 import cl.duoc.tratohecho.navigation.DestinoNotificacion
 import cl.duoc.tratohecho.ui.components.BannerSinConexion
-import cl.duoc.tratohecho.ui.components.BannerSincronizando
 import cl.duoc.tratohecho.ui.screens.ajustes.AjustesScreen
 import cl.duoc.tratohecho.ui.screens.ajustes.EmpresaFormScreen
 import cl.duoc.tratohecho.ui.screens.ajustes.UsuarioFormScreen
@@ -87,6 +86,7 @@ fun PrincipalScreen(
     val hayConexion by viewModel.hayConexion.collectAsStateWithLifecycle()
     val pendientes by viewModel.pendientes.collectAsStateWithLifecycle()
     val sincronizando by viewModel.sincronizando.collectAsStateWithLifecycle()
+    val refrescando by viewModel.refrescando.collectAsStateWithLifecycle()
 
     val navController = rememberNavController()
     val snackbar = remember { SnackbarHostState() }
@@ -145,7 +145,6 @@ fun PrincipalScreen(
                     .statusBarsPadding()
             ) {
                 BannerSinConexion(sinConexion = !hayConexion, pendientes = pendientes)
-                BannerSincronizando(visible = sincronizando && hayConexion)
             }
         },
     ) { padding ->
@@ -173,6 +172,7 @@ fun PrincipalScreen(
                 }
                 InicioScreen(
                     sesion = sesionActual,
+                    actualizando = refrescando,
                     onSincronizar = viewModel::sincronizar,
                     onCerrarSesion = viewModel::cerrarSesion,
                     onNuevaCotizacion = { navController.navigate(AppRoutes.cotizacionForm()) },
@@ -187,7 +187,8 @@ fun PrincipalScreen(
                     sesion = sesionActual,
                     onAbrir = { navController.navigate(AppRoutes.cotizacionDetalle(it)) },
                     onNueva = { navController.navigate(AppRoutes.cotizacionForm()) },
-                    actualizando = sincronizando,
+                    actualizando = refrescando,
+                    cargando = sincronizando,
                     sinConexion = !hayConexion,
                     onActualizar = viewModel::sincronizar
                 )
@@ -197,7 +198,8 @@ fun PrincipalScreen(
                     sesion = sesionActual,
                     onAbrir = { navController.navigate(AppRoutes.clienteDetalle(it)) },
                     onNuevo = { navController.navigate(AppRoutes.clienteForm()) },
-                    actualizando = sincronizando,
+                    actualizando = refrescando,
+                    cargando = sincronizando,
                     sinConexion = !hayConexion,
                     onActualizar = viewModel::sincronizar
                 )
@@ -212,7 +214,8 @@ fun PrincipalScreen(
                     onEditarUnidad = { navController.navigate(AppRoutes.unidadForm(it)) },
                     onNuevoImpuesto = { navController.navigate(AppRoutes.impuestoForm()) },
                     onEditarImpuesto = { navController.navigate(AppRoutes.impuestoForm(it)) },
-                    actualizando = sincronizando,
+                    actualizando = refrescando,
+                    cargando = sincronizando,
                     onActualizar = viewModel::sincronizar
                 )
             }

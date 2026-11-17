@@ -8,6 +8,7 @@ import cl.duoc.tratohecho.data.sync.GestorSincronizacion
 import cl.duoc.tratohecho.domain.CalculadoraIndicadores
 import cl.duoc.tratohecho.domain.model.EstadoCotizacion
 import cl.duoc.tratohecho.domain.model.Indicadores
+import cl.duoc.tratohecho.utils.Formatos
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -15,11 +16,24 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import javax.inject.Inject
 
+// Bandejas del inicio: cada una agrupa cotizaciones que piden la misma acción
+enum class Bandeja(val titulo: String, val vacio: String) {
+    POR_VENCER("Por vencer", "Ninguna cotización vence en los próximos 3 días."),
+    ESPERANDO("Esperando respuesta", "No hay cotizaciones esperando respuesta del cliente."),
+    BORRADORES("Borradores", "No hay borradores pendientes de enviar."),
+    EN_COLA("En cola", "No hay envíos esperando señal.")
+}
+
 data class InicioUiState(
     val indicadores: Indicadores,
-    val enCurso: CotizacionEntity?,          // la cotización que el vendedor está siguiendo ahora
-    val recientes: List<CotizacionEntity>    // últimas cotizaciones creadas
-)
+    val bandejas: Map<Bandeja, List<CotizacionEntity>>,
+    val hayCotizaciones: Boolean
+) {
+    // La bandeja que se abre primero: la más urgente que tenga algo
+    val bandejaInicial: Bandeja
+        get() = listOf(Bandeja.EN_COLA, Bandeja.POR_VENCER, Bandeja.ESPERANDO, Bandeja.BORRADORES)
+            .firstOrNull { !bandejas[it].isNullOrEmpty() } ?: Bandeja.ESPERANDO
+}
 
 @HiltViewModel
 class InicioViewModel @Inject constructor(
@@ -33,8 +47,8 @@ class InicioViewModel @Inject constructor(
             val vigentes = lista.filter { it.estado != EstadoCotizacion.REEMPLAZADA }
             InicioUiState(
                 indicadores = CalculadoraIndicadores.calcular(lista),
-                enCurso = buscarEnCurso(vigentes),
-                recientes = vigentes.take(3)
+                bandejas = armarBandejas(vigentes),
+                hayCotizaciones = vigentes.isNotEmpty()
             )
         }
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), null)
@@ -42,13 +56,18 @@ class InicioViewModel @Inject constructor(
     val pendientes: StateFlow<Int> = gestorSincronizacion.pendientes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
 
-    val sincronizando: StateFlow<Boolean> = gestorSincronizacion.sincronizando
-
-    // Primero la que está en cola de envío, luego la última enviada esperando respuesta, el último borrador
-    // y, si no hay ninguna, la última aceptada que espera facturación
-    private fun buscarEnCurso(lista: List<CotizacionEntity>): CotizacionEntity? =
-        lista.firstOrNull { it.envioPendiente }
-            ?: lista.filter { it.estado == EstadoCotizacion.ENVIADA }.maxByOrNull { it.fechaEnvio ?: 0L }
-            ?: lista.firstOrNull { it.estado == EstadoCotizacion.BORRADOR }
-            ?: lista.filter { it.estado == EstadoCotizacion.ACEPTADA }.maxByOrNull { it.fechaRespuesta ?: 0L }
+    private fun armarBandejas(lista: List<CotizacionEntity>): Map<Bandeja, List<CotizacionEntity>> {
+        val enviadas = lista.filter { it.estado == EstadoCotizacion.ENVIADA && !it.envioPendiente }
+        val porVencer = enviadas
+            .filter { it.fechaVencimiento != null && Formatos.diasHasta(it.fechaVencimiento) in 0..3 }
+            .sortedBy { it.fechaVencimiento }
+        return mapOf(
+            Bandeja.EN_COLA to lista.filter { it.envioPendiente },
+            Bandeja.POR_VENCER to porVencer,
+            Bandeja.ESPERANDO to (enviadas - porVencer.toSet()).sortedByDescending { it.fechaEnvio ?: 0L },
+            Bandeja.BORRADORES to lista
+                .filter { it.estado == EstadoCotizacion.BORRADOR && !it.envioPendiente }
+                .sortedByDescending { it.fechaCreacion }
+        )
+    }
 }

@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import cl.duoc.tratohecho.viewmodel.TraspasoUiState
 import cl.duoc.tratohecho.data.local.entity.UsuarioEntity
 import androidx.compose.ui.semantics.Role
@@ -72,6 +73,7 @@ fun UsuarioFormScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .consumeWindowInsets(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)

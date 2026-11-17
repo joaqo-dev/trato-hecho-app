@@ -305,7 +305,7 @@ class CotizacionFormViewModel @Inject constructor(
 
     fun onItemDescripcionChange(v: String) = actualizarItem { it.copy(descripcion = v) }
     fun onItemCantidadChange(v: String) = actualizarItem { it.copy(cantidad = v) }
-    fun onItemPrecioChange(v: String) = actualizarItem { it.copy(precio = v) }
+    // El precio unitario no se edita al cotizar: viene del catálogo (lo administra el administrador)
     fun onItemDescuentoTipoChange(v: TipoDescuento) = actualizarItem { it.copy(descuentoTipo = v) }
     fun onItemDescuentoChange(v: String) = actualizarItem { it.copy(descuento = v) }
 

@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.clientes
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.material.icons.filled.SupportAgent
 import cl.duoc.tratohecho.utils.ValidadorRut
 import cl.duoc.tratohecho.ui.components.CampoSelector
@@ -98,6 +99,7 @@ fun ClienteFormScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .consumeWindowInsets(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)

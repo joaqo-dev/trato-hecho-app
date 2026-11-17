@@ -28,7 +28,12 @@ fun colorDeEstado(estado: EstadoCotizacion): Color = colorEstado(estado).texto
 
 // Píldora de estado con fondo suave; el color cambia con animación cuando la cotización cambia de estado
 @Composable
-fun ChipEstado(estado: EstadoCotizacion, modifier: Modifier = Modifier, enCola: Boolean = false) {
+fun ChipEstado(
+    estado: EstadoCotizacion,
+    modifier: Modifier = Modifier,
+    enCola: Boolean = false,
+    compacto: Boolean = false   // versión baja para filas de lista
+) {
     val colores = colorEstado(estado, enCola)
     val fondo by animateColorAsState(colores.fondo, tween(DURACION_MEDIA), label = "fondo_estado")
     val texto by animateColorAsState(colores.texto, tween(DURACION_MEDIA), label = "texto_estado")
@@ -39,6 +44,6 @@ fun ChipEstado(estado: EstadoCotizacion, modifier: Modifier = Modifier, enCola: 
         modifier = modifier
             .clip(Pildora)
             .background(fondo)
-            .padding(horizontal = 14.dp, vertical = 7.dp)
+            .padding(horizontal = if (compacto) 10.dp else 14.dp, vertical = if (compacto) 3.dp else 7.dp)
     )
 }

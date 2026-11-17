@@ -48,6 +48,7 @@ fun CotizacionesScreen(
     onAbrir: (String) -> Unit,
     onNueva: () -> Unit,
     actualizando: Boolean,
+    cargando: Boolean = actualizando,   // sincronización automática en curso (lista aún vacía)
     sinConexion: Boolean,
     onActualizar: () -> Unit,
     viewModel: CotizacionesViewModel = hiltViewModel()
@@ -80,11 +81,12 @@ fun CotizacionesScreen(
                     .horizontalScroll(rememberScrollState())
                     .padding(horizontal = 20.dp, vertical = 12.dp)
             ) {
-                EstadoCotizacion.entries.forEach { estado ->
+                // "Todas" deja claro qué se está viendo cuando no hay filtro (visibilidad del estado)
+                (listOf<EstadoCotizacion?>(null) + EstadoCotizacion.entries).forEach { estado ->
                     FilterChip(
                         selected = filtro == estado,
                         onClick = { viewModel.onFiltroChange(estado) },
-                        label = { Text(estado.etiqueta) },
+                        label = { Text(estado?.etiqueta ?: "Todas") },
                         shape = Pildora,
                         colors = FilterChipDefaults.filterChipColors(
                             selectedContainerColor = MaterialTheme.colorScheme.primary,
@@ -102,7 +104,7 @@ fun CotizacionesScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     when {
-                        lista == null || (lista.isEmpty() && actualizando) -> item { CargandoDatos("Cargando cotizaciones…") }
+                        lista == null || (lista.isEmpty() && cargando) -> item { CargandoDatos("Cargando cotizaciones…") }
                         lista.isEmpty() && sinConexion && busqueda.isBlank() && filtro == null -> item {
                             EstadoVacio(
                                 icono = Icons.Filled.CloudOff,
@@ -121,13 +123,23 @@ fun CotizacionesScreen(
                                 }
                             )
                         }
-                        else -> items(lista, key = { it.id }) { cot ->
+                        else -> {
+                            item(key = "conteo") {
+                                Text(
+                                    if (lista.size == 1) "1 cotización" else "${lista.size} cotizaciones",
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                    modifier = Modifier.padding(bottom = 2.dp)
+                                )
+                            }
+                            items(lista, key = { it.id }) { cot ->
                             TarjetaCotizacion(
                                 cotizacion = cot,
                                 onClick = { onAbrir(cot.id) },
                                 mostrarVendedor = sesion.rol != Rol.VENDEDOR,
                                 modifier = Modifier.animateItem()
                             )
+                            }
                         }
                     }
                 }

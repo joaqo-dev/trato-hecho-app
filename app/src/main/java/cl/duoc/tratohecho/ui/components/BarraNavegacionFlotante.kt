@@ -1,22 +1,20 @@
 package cl.duoc.tratohecho.ui.components
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.Spring
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
-import androidx.compose.animation.expandHorizontally
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -42,7 +40,6 @@ val ESPACIO_BARRA_NAVEGACION = 96.dp
 data class DestinoBarra(val ruta: String, val titulo: String, val icono: ImageVector)
 
 // Barra de navegación inferior en forma de píldora flotante.
-// La sección activa se marca con una píldora negra que muestra ícono + nombre.
 @Composable
 fun BarraNavegacionFlotante(
     destinos: List<DestinoBarra>,
@@ -57,9 +54,8 @@ fun BarraNavegacionFlotante(
         modifier = modifier
     ) {
         Row(
-            horizontalArrangement = Arrangement.spacedBy(2.dp),
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(6.dp)
+            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
         ) {
             destinos.forEach { destino ->
                 ItemBarra(destino, seleccionado = destino.ruta == rutaActual, onClick = { onSeleccionar(destino) })
@@ -68,6 +64,8 @@ fun BarraNavegacionFlotante(
     }
 }
 
+// Cada destino muestra siempre ícono y nombre: con cinco secciones, solo íconos obliga a recordar.
+// La sección activa se marca con una píldora negra detrás del ícono (sin desplazar el resto).
 @Composable
 private fun ItemBarra(destino: DestinoBarra, seleccionado: Boolean, onClick: () -> Unit) {
     val interaccion = remember { MutableInteractionSource() }
@@ -75,15 +73,14 @@ private fun ItemBarra(destino: DestinoBarra, seleccionado: Boolean, onClick: () 
         if (seleccionado) MaterialTheme.colorScheme.primary else TratoTheme.colores.barraNavegacion,
         tween(DURACION_CORTA), label = "fondo_item"
     )
-    val contenido by animateColorAsState(
+    val icono by animateColorAsState(
         if (seleccionado) MaterialTheme.colorScheme.onPrimary else MaterialTheme.colorScheme.onSurfaceVariant,
-        tween(DURACION_CORTA), label = "contenido_item"
+        tween(DURACION_CORTA), label = "icono_item"
     )
-    Row(
-        verticalAlignment = Alignment.CenterVertically,
+    Column(
+        horizontalAlignment = Alignment.CenterHorizontally,
         modifier = Modifier
-            .clip(Pildora)
-            .background(fondo)
+            .clip(MaterialTheme.shapes.large)
             .selectable(
                 selected = seleccionado,
                 onClick = onClick,
@@ -92,20 +89,26 @@ private fun ItemBarra(destino: DestinoBarra, seleccionado: Boolean, onClick: () 
                 indication = null
             )
             .efectoPresion(interaccion)
-            .defaultMinSize(minWidth = 52.dp, minHeight = 52.dp)
-            .padding(horizontal = 15.dp)
+            .widthIn(min = 60.dp)
+            .padding(horizontal = 6.dp, vertical = 6.dp)
     ) {
-        Icon(destino.icono, contentDescription = destino.titulo, tint = contenido)
-        // El nombre aparece solo en la sección activa, deslizándose con un resorte suave
-        AnimatedVisibility(
-            visible = seleccionado,
-            enter = fadeIn(tween(DURACION_CORTA)) + expandHorizontally(spring(stiffness = Spring.StiffnessMediumLow)),
-            exit = fadeOut(tween(120)) + shrinkHorizontally(spring(stiffness = Spring.StiffnessMediumLow))
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(width = 52.dp, height = 30.dp)
+                .clip(Pildora)
+                .background(fondo)
         ) {
-            Row {
-                Spacer(Modifier.width(8.dp))
-                Text(destino.titulo, style = MaterialTheme.typography.labelLarge, color = contenido, maxLines = 1)
-            }
+            Icon(destino.icono, contentDescription = null, tint = icono, modifier = Modifier.size(22.dp))
         }
+        Spacer(Modifier.height(4.dp))
+        Text(
+            destino.titulo,
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = if (seleccionado) FontWeight.SemiBold else FontWeight.Medium,
+            color = if (seleccionado) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis
+        )
     }
 }

@@ -72,6 +72,7 @@ fun CatalogoScreen(
     onNuevoImpuesto: () -> Unit,
     onEditarImpuesto: (String) -> Unit,
     actualizando: Boolean,
+    cargando: Boolean = actualizando,   // sincronización automática en curso (lista aún vacía)
     onActualizar: () -> Unit,
     viewModel: CatalogoViewModel = hiltViewModel()
 ) {
@@ -125,7 +126,7 @@ fun CatalogoScreen(
                 ) {
                     when (seleccion) {
                         0 -> {
-                            if (productos.isEmpty() && actualizando) item { CargandoDatos("Cargando catálogo…") }
+                            if (productos.isEmpty() && cargando) item { CargandoDatos("Cargando catálogo…") }
                             else if (productos.isEmpty()) item {
                                 EstadoVacio(Icons.Filled.Inventory2, "Sin productos", "Agrega productos o servicios para cotizar más rápido.")
                             }
@@ -183,9 +184,10 @@ fun CatalogoScreen(
 
     aEliminar?.let { elemento ->
         DialogoConfirmacion(
-            titulo = "Eliminar",
-            mensaje = "¿Eliminar \"${elemento.nombre}\" del catálogo? Requiere conexión.",
+            titulo = "¿Eliminar \"${elemento.nombre}\"?",
+            mensaje = "Se quitará del catálogo y no se podrá recuperar. Las cotizaciones ya creadas no cambian. Necesitas conexión.",
             textoConfirmar = "Eliminar",
+            destructivo = true,
             onConfirmar = {
                 when (elemento.tipo) {
                     0 -> viewModel.eliminarProducto(elemento.id)

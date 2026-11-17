@@ -1,5 +1,7 @@
 package cl.duoc.tratohecho.viewmodel
 
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.MutableStateFlow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import cl.duoc.tratohecho.data.repository.AuthRepository
@@ -29,7 +31,14 @@ class PrincipalViewModel @Inject constructor(
 
     val hayConexion: StateFlow<Boolean> = monitorRed.hayConexion
 
+    // Sincronización automática (al abrir la app o al volver la señal): no se muestra en pantalla,
+    // solo sirve para decir "Cargando…" cuando una lista aún está vacía
     val sincronizando: StateFlow<Boolean> = gestorSincronizacion.sincronizando
+
+    // true solo mientras dura una actualización que pidió el usuario deslizando hacia abajo:
+    // es lo único que muestra la rueda de carga
+    private val _refrescando = MutableStateFlow(false)
+    val refrescando: StateFlow<Boolean> = _refrescando.asStateFlow()
 
     val pendientes: StateFlow<Int> = gestorSincronizacion.pendientes
         .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), 0)
@@ -38,10 +47,13 @@ class PrincipalViewModel @Inject constructor(
     val mensajes: SharedFlow<String> = _mensajes.asSharedFlow()
 
     fun sincronizar() {
+        if (_refrescando.value) return
         viewModelScope.launch {
+            _refrescando.value = true
+            // Al terminar, la rueda se va sola: solo se avisa con un mensaje si algo falló
             gestorSincronizacion.sincronizarAhora()
-                .onSuccess { _mensajes.emit("Datos sincronizados") }
-                .onFailure { _mensajes.emit(it.message ?: "No se pudo sincronizar") }
+                .onFailure { _mensajes.emit(it.message ?: "No se pudo actualizar") }
+            _refrescando.value = false
         }
     }
 

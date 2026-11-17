@@ -2,10 +2,8 @@ package cl.duoc.tratohecho.ui.screens.cotizaciones
 
 import android.content.ActivityNotFoundException
 import androidx.compose.foundation.background
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.ui.draw.clip
 import androidx.compose.material.icons.automirrored.filled.ReceiptLong
-import androidx.compose.material.icons.filled.Description
 import androidx.compose.material.icons.filled.History
 import cl.duoc.tratohecho.domain.HistorialCotizacion
 import cl.duoc.tratohecho.nativo.ContactoHelper
@@ -22,7 +20,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -120,7 +117,7 @@ fun CotizacionDetalleScreen(
 
     Scaffold(
         containerColor = MaterialTheme.colorScheme.background,
-        topBar = { BarraConVolver("Detalle", onVolver) }
+        topBar = { BarraConVolver(detalle?.datos?.cotizacion?.numeroCompleto ?: "Cotización", onVolver) }
     ) { padding ->
         val actual = detalle
         if (actual == null) {
@@ -142,24 +139,17 @@ fun CotizacionDetalleScreen(
                     .padding(horizontal = 20.dp)
                     .padding(top = 8.dp, bottom = 32.dp)
             ) {
-                // ---------- Encabezado tipo "tracking" ----------
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Box(
-                        contentAlignment = Alignment.Center,
-                        modifier = Modifier
-                            .size(52.dp)
-                            .clip(CircleShape)
-                            .background(MaterialTheme.colorScheme.surfaceContainer)
-                    ) {
-                        Icon(Icons.Filled.Description, contentDescription = null)
-                    }
-                    Spacer(Modifier.width(14.dp))
-                    Column(Modifier.weight(1f)) {
-                        Etiqueta("N° de cotización")
-                        Text(cot.numeroCompleto, style = MaterialTheme.typography.titleLarge)
+                // ---------- Encabezado: a quién, cuánto y en qué estado ----------
+                Row(verticalAlignment = Alignment.Top) {
+                    Column(Modifier.weight(1f).padding(end = 12.dp)) {
+                        // El número ya está en la barra superior; aquí va el cliente
+                        Text(cot.clienteNombre, style = MaterialTheme.typography.headlineSmall)
                     }
                     ChipEstado(cot.estado, enCola = cot.envioPendiente)
                 }
+                Spacer(Modifier.height(16.dp))
+                Etiqueta("Total")
+                Text(Formatos.monto(cot.total, cot.moneda), style = MaterialTheme.typography.displaySmall)
                 Spacer(Modifier.height(24.dp))
                 TrackerCotizacion(cot)
                 Spacer(Modifier.height(24.dp))
@@ -169,6 +159,9 @@ fun CotizacionDetalleScreen(
                     puedeModificar && cot.estado == EstadoCotizacion.BORRADOR && !cot.envioPendiente ->
                         BotonCarga("Enviar al cliente", viewModel::enviar, procesando, icono = Icons.AutoMirrored.Filled.Send)
                     cot.estado == EstadoCotizacion.BORRADOR -> Unit
+                    // Ya respondida: reenviar el correo es una acción secundaria
+                    cot.estado != EstadoCotizacion.ANULADA && cot.estado != EstadoCotizacion.ENVIADA ->
+                        BotonSecundario("Enviar por correo", viewModel::abrirCorreo, icono = Icons.AutoMirrored.Filled.Send)
                     cot.estado != EstadoCotizacion.ANULADA ->
                         BotonCarga(
                             if (puedeModificar && cot.estado == EstadoCotizacion.ENVIADA) "Reenviar por correo" else "Enviar por correo",
@@ -186,7 +179,6 @@ fun CotizacionDetalleScreen(
                 // ---------- Datos ----------
                 Spacer(Modifier.height(8.dp))
                 BloqueDetalle("Datos de la cotización") {
-                    FilaDetalle("Cliente", cot.clienteNombre)
                     if (cliente != null) FilaDetalle("RUT", cliente.rut)
                     FilaDetalle("Vendedor", cot.vendedorNombre)
                     FilaDetalle(
@@ -271,10 +263,13 @@ fun CotizacionDetalleScreen(
     }
 
     if (confirmarAnular) {
+        val esBorrador = detalle?.datos?.cotizacion?.estado == EstadoCotizacion.BORRADOR
         DialogoConfirmacion(
-            titulo = "Anular cotización",
-            mensaje = "La cotización quedará anulada y no podrá enviarse ni aceptarse.",
-            textoConfirmar = "Anular",
+            titulo = if (esBorrador) "¿Descartar el borrador?" else "¿Anular la cotización?",
+            mensaje = if (esBorrador) "El borrador quedará anulado y ya no podrás enviarlo."
+            else "Quedará anulada y el cliente ya no podrá aceptarla. Esta acción no se puede deshacer.",
+            textoConfirmar = if (esBorrador) "Descartar" else "Anular",
+            destructivo = true,
             onConfirmar = {
                 confirmarAnular = false
                 viewModel.anular()
@@ -284,7 +279,7 @@ fun CotizacionDetalleScreen(
     }
     if (confirmarVersion) {
         DialogoConfirmacion(
-            titulo = "Nueva versión",
+            titulo = "¿Crear una nueva versión?",
             mensaje = "Se creará un borrador con los mismos datos para corregirlo. Esta versión quedará como reemplazada.",
             textoConfirmar = "Crear versión",
             onConfirmar = {

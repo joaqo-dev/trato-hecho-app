@@ -1,5 +1,6 @@
 package cl.duoc.tratohecho.ui.screens.ajustes
 
+import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.runtime.remember
 import cl.duoc.tratohecho.utils.RutVisualTransformation
 import androidx.compose.foundation.layout.Box
@@ -60,6 +61,7 @@ fun EmpresaFormScreen(
             Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .consumeWindowInsets(padding)
                 .imePadding()
                 .verticalScroll(rememberScrollState())
                 .padding(16.dp)
